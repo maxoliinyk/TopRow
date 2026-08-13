@@ -1,0 +1,13 @@
+.DS_Store
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+
+# Local development-only agent files
+AGENTS.md
+CLAUDE.md
+.codex/
+.claude/
+.cursor/
+.ai/
