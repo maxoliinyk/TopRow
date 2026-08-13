@@ -6,8 +6,8 @@
 //
 
 import AppKit
+import LaunchAtLogin
 import Observation
-import ServiceManagement
 
 @MainActor
 @Observable
@@ -35,7 +35,13 @@ final class ApplicationState {
 
     init(store: ConfigurationStore = ConfigurationStore()) {
         self.store = store
-        self.configuration = store.loadConfiguration()
+        let actualLaunchAtLogin = LaunchAtLogin.isEnabled
+        var configuration = store.loadConfiguration()
+        if configuration.launchAtLogin != actualLaunchAtLogin {
+            configuration.launchAtLogin = actualLaunchAtLogin
+            store.save(configuration: configuration)
+        }
+        self.configuration = configuration
         self.ownership = store.loadOwnership()
         self.statuses = Dictionary(
             uniqueKeysWithValues: FunctionRowAction.allCases.map { ($0, .defaulted) }
@@ -161,19 +167,29 @@ final class ApplicationState {
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-            configuration.launchAtLogin = enabled
-            lastError = nil
-            launchAtLoginError = nil
-            store.save(configuration: configuration)
-        } catch {
-            launchAtLoginError = "Launch at login could not be updated: \(error.localizedDescription)"
+        // LaunchAtLogin performs the SMAppService registration and retries a
+        // stale enabled registration before registering again.
+        LaunchAtLogin.isEnabled = enabled
+        let actualLaunchAtLogin = LaunchAtLogin.isEnabled
+        configuration.launchAtLogin = actualLaunchAtLogin
+        store.save(configuration: configuration)
+
+        guard actualLaunchAtLogin == enabled else {
+            launchAtLoginError = enabled
+                ? "macOS did not enable Launch at Login. Open System Settings › General › Login Items and allow TopRow."
+                : "macOS did not disable Launch at Login. Try again from System Settings › General › Login Items."
+            return
         }
+
+        lastError = nil
+        launchAtLoginError = nil
+    }
+
+    func refreshLaunchAtLogin() {
+        let actualLaunchAtLogin = LaunchAtLogin.isEnabled
+        guard configuration.launchAtLogin != actualLaunchAtLogin else { return }
+        configuration.launchAtLogin = actualLaunchAtLogin
+        store.save(configuration: configuration)
     }
 
     func requestPostEventAccess() {

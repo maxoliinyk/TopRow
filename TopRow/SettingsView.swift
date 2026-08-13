@@ -123,6 +123,7 @@ struct SettingsView: View {
         .task {
             await appState.start()
             appState.refreshPostEventAccess()
+            appState.refreshLaunchAtLogin()
         }
     }
 }
