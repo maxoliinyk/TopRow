@@ -156,7 +156,12 @@ final class ShortcutRuntime {
 
             let proxyShortcut = KeyboardShortcuts.Shortcut(carbonKeyCode: keyCode)
             listenerTasks[action] = Task { [emitter] in
-                for await _ in KeyboardShortcuts.events(for: proxyShortcut) {
+                // A physical press produces both proxy key-down and key-up
+                // events. Emit the configured shortcut once, on key-down;
+                // emitting on key-up as well turns one press into two
+                // Command–Space toggles (Raycast opens, then immediately
+                // closes).
+                for await _ in KeyboardShortcuts.events(.keyDown, for: proxyShortcut) {
                     guard !Task.isCancelled else { return }
                     // Permission can be revoked while a listener is alive.
                     // Avoid posting a stale shortcut until reconciliation has
