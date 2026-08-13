@@ -192,6 +192,45 @@ nonisolated enum FunctionRowAction: String, CaseIterable, Codable, Identifiable,
     }
 }
 
+/// Modifiers that can be selected independently from the base key in the
+/// shortcut editor. Keeping this separate from `NSEvent.ModifierFlags` makes
+/// the editor's state explicit and keeps persistence in Carbon's format.
+nonisolated enum ShortcutModifier: String, CaseIterable, Identifiable, Sendable {
+    case command
+    case option
+    case control
+    case shift
+
+    var id: Self { self }
+
+    var carbonMask: Int {
+        switch self {
+        case .command: Int(cmdKey)
+        case .option: Int(optionKey)
+        case .control: Int(controlKey)
+        case .shift: Int(shiftKey)
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .command: "⌘"
+        case .option: "⌥"
+        case .control: "⌃"
+        case .shift: "⇧"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .command: "Command"
+        case .option: "Option"
+        case .control: "Control"
+        case .shift: "Shift"
+        }
+    }
+}
+
 nonisolated struct StoredShortcut: Codable, Equatable, Hashable, Sendable {
     let carbonKeyCode: Int
     let carbonModifiers: Int
@@ -230,8 +269,16 @@ nonisolated struct StoredShortcut: Codable, Equatable, Hashable, Sendable {
         if carbonModifiers & Int(optionKey) != 0 { result += "⌥" }
         if carbonModifiers & Int(controlKey) != 0 { result += "⌃" }
         if carbonModifiers & Int(shiftKey) != 0 { result += "⇧" }
-        result += Self.keyName(for: carbonKeyCode)
+        result += keyDisplayName
         return result
+    }
+
+    var keyDisplayName: String {
+        Self.keyName(for: carbonKeyCode)
+    }
+
+    func replacingModifiers(_ carbonModifiers: Int) -> Self {
+        Self(carbonKeyCode: carbonKeyCode, carbonModifiers: carbonModifiers)
     }
 
     private static func keyName(for keyCode: Int) -> String {

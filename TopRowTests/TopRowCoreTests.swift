@@ -21,6 +21,23 @@ struct TopRowCoreTests {
     }
 
     @Test
+    func shortcutModifierMasksComposeIndependently() {
+        let mask = ShortcutModifier.command.carbonMask | ShortcutModifier.option.carbonMask
+        let shortcut = StoredShortcut(carbonKeyCode: Int(kVK_Space), carbonModifiers: mask)
+
+        #expect(shortcut.displayName == "⌘⌥Space")
+        #expect(shortcut.replacingModifiers(ShortcutModifier.shift.carbonMask).displayName == "⇧Space")
+    }
+
+    @Test
+    func shortcutKeyDisplayDoesNotExposeTextFieldEditing() {
+        let shortcut = StoredShortcut(carbonKeyCode: Int(kVK_ANSI_D), carbonModifiers: Int(cmdKey))
+
+        #expect(shortcut.keyDisplayName == "D")
+        #expect(shortcut.displayName == "⌘D")
+    }
+
+    @Test
     func functionKeyMappings() {
         #expect(FunctionKey.f1.hidUsage == HIDUsage(page: 0x07, usage: 0x3A))
         #expect(FunctionKey.f12.hidUsage == HIDUsage(page: 0x07, usage: 0x45))

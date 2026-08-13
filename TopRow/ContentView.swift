@@ -398,19 +398,51 @@ private struct MappingEditor: View {
 
         case .shortcut:
             VStack(alignment: .leading, spacing: 13) {
+                Text("Modifiers")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 7) {
+                    ForEach(ShortcutModifier.allCases) { modifier in
+                        Button {
+                            toggleModifier(modifier)
+                        } label: {
+                            Text("\(modifier.symbol) \(modifier.title)")
+                                .font(.callout.weight(.medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(ModifierChipButtonStyle(isSelected: isModifierSelected(modifier)))
+                    }
+                }
+
                 HStack(spacing: 12) {
-                    Label("Press", systemImage: "command")
+                    Label("Key", systemImage: "keyboard")
                         .foregroundStyle(.secondary)
-                    KeyboardShortcuts.Recorder(shortcut: shortcutBinding)
-                        .keyboardShortcutsConflictPolicy(.init(menuItem: .allow, systemShortcut: .warn, disallowed: .block))
-                        .controlSize(.large)
+                    ShortcutKeyCapture(
+                        shortcut: currentShortcut,
+                        isEnabled: true,
+                        onKeyCapture: captureBaseKey,
+                        onInvalidInput: {
+                            shortcutValidationMessage = "Press the base key only. Choose Command, Option, Control, or Shift above."
+                        }
+                    )
                     Spacer(minLength: 0)
                 }
+
+                Text("Choose modifiers, then click the key field and press one key. System shortcuts such as ⌘Space are recorded without activating them.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 if let shortcutValidationMessage {
                     Label(shortcutValidationMessage, systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.orange)
+                }
+
+                if currentShortcut.shortcut.isTakenBySystem {
+                    Label("This matches a macOS shortcut. TopRow will still emit it when the function-row key is pressed.", systemImage: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 if !appState.isPostEventAccessGranted {
@@ -445,29 +477,72 @@ private struct MappingEditor: View {
         )
     }
 
-    private var shortcutBinding: Binding<KeyboardShortcuts.Shortcut?> {
-        Binding(
-            get: {
-                guard case let .shortcut(shortcut) = appState.configuration.destination(for: action) else {
-                    return nil
-                }
-                return shortcut.shortcut
-            },
-            set: { shortcut in
-                guard let shortcut else {
-                    appState.setDestination(.systemDefault, for: action)
-                    return
-                }
+    private var currentShortcut: StoredShortcut {
+        if case let .shortcut(shortcut) = appState.configuration.destination(for: action) {
+            return shortcut
+        }
 
-                let stored = StoredShortcut(shortcut)
-                guard ShortcutValidation.isSupported(stored) else {
-                    shortcutValidationMessage = "Use Command, Option, Control, or Shift modifiers only."
-                    return
-                }
-                shortcutValidationMessage = nil
-                appState.setDestination(ShortcutValidation.normalizedDestination(from: stored), for: action)
-            }
+        return StoredShortcut(carbonKeyCode: Int(kVK_ANSI_D), carbonModifiers: Int(controlKey | optionKey))
+    }
+
+    private func isModifierSelected(_ modifier: ShortcutModifier) -> Bool {
+        currentShortcut.carbonModifiers & modifier.carbonMask != 0
+    }
+
+    private func toggleModifier(_ modifier: ShortcutModifier) {
+        let current = currentShortcut
+        let nextMask: Int
+        if isModifierSelected(modifier) {
+            nextMask = current.carbonModifiers & ~modifier.carbonMask
+        } else {
+            nextMask = current.carbonModifiers | modifier.carbonMask
+        }
+
+        applyShortcut(KeyboardShortcuts.Shortcut(
+            carbonKeyCode: current.carbonKeyCode,
+            carbonModifiers: nextMask
+        ))
+    }
+
+    private func captureBaseKey(_ keyCode: Int) {
+        let shortcut = KeyboardShortcuts.Shortcut(
+            carbonKeyCode: keyCode,
+            carbonModifiers: currentShortcut.carbonModifiers
         )
+        applyShortcut(shortcut)
+    }
+
+    private func applyShortcut(_ shortcut: KeyboardShortcuts.Shortcut) {
+        let stored = StoredShortcut(shortcut)
+        guard ShortcutValidation.isSupported(stored) else {
+            shortcutValidationMessage = "Use Command, Option, Control, or Shift modifiers only."
+            return
+        }
+
+        shortcutValidationMessage = nil
+        appState.setDestination(ShortcutValidation.normalizedDestination(from: stored), for: action)
+    }
+}
+
+private struct ModifierChipButtonStyle: ButtonStyle {
+    let isSelected: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(isSelected ? Color.white : Color.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 7)
+            .background(
+                isSelected ? Color.accentColor : Color.primary.opacity(0.05),
+                in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(Color.primary.opacity(isSelected ? 0 : 0.10), lineWidth: 1)
+            }
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
