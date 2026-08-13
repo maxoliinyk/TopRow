@@ -53,6 +53,6 @@ The probe is intentionally read-only. If its capture file is empty, treat that a
 - Swift 6 / SwiftUI
 - Xcode 27+
 
-Open `TopRow.xcodeproj` and select your own signing team for the app and test targets. The project does not include a developer-specific team or private signing configuration.
+Open `TopRow.xcodeproj` and configure a stable development signature before testing shortcut destinations. Copy `Config/LocalSigning.xcconfig.example` to `Config/LocalSigning.xcconfig`, replace `YOUR_TEAM_ID` with your Apple Developer Team ID, then build again. This local file is ignored and never commits a developer-specific team. An ad-hoc build will ask for Post Event permission again after every rebuild because macOS binds that grant to the signed app identity; direct HID mappings do not need it. When switching from an old ad-hoc build, remove its TopRow entry once and enable the newly signed build.
 
 The project uses Apple HID APIs and [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts). HID source usages are hardware-sensitive; validate them on the supported built-in keyboard before enabling remapping.

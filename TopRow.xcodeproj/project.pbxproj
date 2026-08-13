@@ -23,6 +23,7 @@
 /* Begin PBXFileReference section */
 		C40D9174302E34BB00C8E74B /* TopRow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TopRow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D30000000000000000000010 /* TopRowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TopRowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D30000000000000000000022 /* TopRow.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TopRow.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -58,6 +59,7 @@
 			children = (
 				C40D9176302E34BB00C8E74B /* TopRow */,
 				D30000000000000000000011 /* TopRowTests */,
+				D30000000000000000000023 /* Config */,
 				C40D9175302E34BB00C8E74B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -69,6 +71,14 @@
 				D30000000000000000000010 /* TopRowTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		D30000000000000000000023 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				D30000000000000000000022 /* TopRow.xcconfig */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -195,6 +205,7 @@
 /* Begin XCBuildConfiguration section */
 		C40D917D302E34BC00C8E74B /* Debug configuration for PBXProject "TopRow" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D30000000000000000000022 /* TopRow.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -257,6 +268,7 @@
 		};
 		C40D917E302E34BC00C8E74B /* Release configuration for PBXProject "TopRow" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D30000000000000000000022 /* TopRow.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;

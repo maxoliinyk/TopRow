@@ -4,6 +4,9 @@ build/
 xcuserdata/
 *.xcuserstate
 
+# Local code-signing identity; use Config/LocalSigning.xcconfig.example.
+Config/LocalSigning.xcconfig
+
 # Local development-only agent files
 AGENTS.md
 CLAUDE.md

@@ -1,0 +1,5 @@
+// Copy this file to LocalSigning.xcconfig and replace the team identifier.
+// Keep LocalSigning.xcconfig untracked; it is intentionally ignored by git.
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = YOUR_TEAM_ID

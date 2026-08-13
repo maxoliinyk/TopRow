@@ -67,7 +67,7 @@ struct SettingsView: View {
                         Text("1. Open \(PostEventAccess.settingsCategoryName).  2. Turn on TopRow.  3. Return here and check again.")
                             .font(.caption)
 
-                        Text("If TopRow is already enabled, quit and relaunch this exact build, then switch it off and on once. macOS ties the grant to the signed app identity.")
+                        Text("If TopRow was previously built ad hoc, remove that old TopRow entry once, enable this signed build, and future rebuilds will keep the grant.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
 
