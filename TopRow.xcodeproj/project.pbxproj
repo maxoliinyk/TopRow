@@ -6,8 +6,23 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D30000000000000000000003 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = D30000000000000000000002 /* KeyboardShortcuts */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D30000000000000000000019 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C40D916C302E34BB00C8E74B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C40D9173302E34BB00C8E74B;
+			remoteInfo = TopRow;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		C40D9174302E34BB00C8E74B /* TopRow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TopRow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D30000000000000000000010 /* TopRowTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TopRowTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +31,21 @@
 			path = TopRow;
 			sourceTree = "<group>";
 		};
+		D30000000000000000000011 /* TopRowTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TopRowTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		C40D9171302E34BB00C8E74B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				D30000000000000000000003 /* KeyboardShortcuts in Frameworks */,
+			);
+		};
+		D30000000000000000000012 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -31,6 +57,7 @@
 			isa = PBXGroup;
 			children = (
 				C40D9176302E34BB00C8E74B /* TopRow */,
+				D30000000000000000000011 /* TopRowTests */,
 				C40D9175302E34BB00C8E74B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -39,6 +66,7 @@
 			isa = PBXGroup;
 			children = (
 				C40D9174302E34BB00C8E74B /* TopRow.app */,
+				D30000000000000000000010 /* TopRowTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -60,9 +88,33 @@
 				C40D9176302E34BB00C8E74B /* TopRow */,
 			);
 			name = TopRow;
+			packageProductDependencies = (
+				D30000000000000000000002 /* KeyboardShortcuts */,
+			);
 			productName = TopRow;
 			productReference = C40D9174302E34BB00C8E74B /* TopRow.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D30000000000000000000015 /* TopRowTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D30000000000000000000016 /* Build configuration list for PBXNativeTarget "TopRowTests" */;
+			buildPhases = (
+				D30000000000000000000014 /* Sources */,
+				D30000000000000000000012 /* Frameworks */,
+				D30000000000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D30000000000000000000017 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D30000000000000000000011 /* TopRowTests */,
+			);
+			name = TopRowTests;
+			productName = TopRowTests;
+			productReference = D30000000000000000000010 /* TopRowTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -77,6 +129,10 @@
 					C40D9173302E34BB00C8E74B = {
 						CreatedOnToolsVersion = 27.0;
 					};
+					D30000000000000000000015 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = C40D9173302E34BB00C8E74B;
+					};
 				};
 			};
 			buildConfigurationList = C40D916F302E34BB00C8E74B /* Build configuration list for PBXProject "TopRow" */;
@@ -88,18 +144,27 @@
 			);
 			mainGroup = C40D916B302E34BB00C8E74B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D30000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C40D9175302E34BB00C8E74B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				C40D9173302E34BB00C8E74B /* TopRow */,
+				D30000000000000000000015 /* TopRowTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C40D9172302E34BB00C8E74B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		D30000000000000000000013 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
 			);
@@ -112,7 +177,20 @@
 			files = (
 			);
 		};
+		D30000000000000000000014 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D30000000000000000000017 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C40D9173302E34BB00C8E74B /* TopRow */;
+			targetProxy = D30000000000000000000019 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C40D917D302E34BC00C8E74B /* Debug configuration for PBXProject "TopRow" */ = {
@@ -169,7 +247,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -227,7 +305,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -244,7 +322,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F2Z5AUR56U;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -262,8 +340,9 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -276,7 +355,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F2Z5AUR56U;
-				ENABLE_APP_SANDBOX = YES;
+				ENABLE_APP_SANDBOX = NO;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
@@ -294,8 +373,47 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		D30000000000000000000020 /* Debug configuration for PBXNativeTarget "TopRowTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F2Z5AUR56U;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxoliinyk.TopRowTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TopRow.app/Contents/MacOS/TopRow";
+			};
+			name = Debug;
+		};
+		D30000000000000000000021 /* Release configuration for PBXNativeTarget "TopRowTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = F2Z5AUR56U;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxoliinyk.TopRowTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TopRow.app/Contents/MacOS/TopRow";
 			};
 			name = Release;
 		};
@@ -318,7 +436,34 @@
 			);
 			defaultConfigurationName = Release;
 		};
+		D30000000000000000000016 /* Build configuration list for PBXNativeTarget "TopRowTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D30000000000000000000020 /* Debug configuration for PBXNativeTarget "TopRowTests" */,
+				D30000000000000000000021 /* Release configuration for PBXNativeTarget "TopRowTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D30000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D30000000000000000000002 /* KeyboardShortcuts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D30000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
+			productName = KeyboardShortcuts;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C40D916C302E34BB00C8E74B /* Project object */;
 	validationLevel = 1;
