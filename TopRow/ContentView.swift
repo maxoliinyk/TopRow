@@ -34,17 +34,23 @@ struct ContentView: View {
             Divider()
 
             HStack {
-                Toggle("Remapping Enabled", isOn: $appState.configuration.isEnabled)
-                    .onChange(of: appState.configuration.isEnabled) { _, enabled in
-                        appState.setEnabled(enabled)
-                    }
+                Toggle(
+                    "Remapping Enabled",
+                    isOn: Binding(
+                        get: { appState.configuration.isEnabled },
+                        set: { appState.setEnabled($0) }
+                    )
+                )
 
                 Spacer()
 
-                Toggle("Launch at Login", isOn: $appState.configuration.launchAtLogin)
-                    .onChange(of: appState.configuration.launchAtLogin) { _, enabled in
-                        appState.setLaunchAtLogin(enabled)
-                    }
+                Toggle(
+                    "Launch at Login",
+                    isOn: Binding(
+                        get: { appState.configuration.launchAtLogin },
+                        set: { appState.setLaunchAtLogin($0) }
+                    )
+                )
             }
             .toggleStyle(.checkbox)
 
