@@ -1,3 +1,10 @@
+//
+//  HIDServiceMonitor.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import Foundation
 
 /// Watches the small set of services that TopRow is allowed to touch.

@@ -1,3 +1,10 @@
+//
+//  ApplicationState.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import AppKit
 import Observation
 import ServiceManagement
@@ -24,6 +31,7 @@ final class ApplicationState {
     private var permissionMonitorTask: Task<Void, Never>?
     private var reconcileRequested = false
     private var hasStarted = false
+    private var shutdownStarted = false
 
     init(store: ConfigurationStore = ConfigurationStore()) {
         self.store = store
@@ -202,6 +210,8 @@ final class ApplicationState {
     }
 
     func shutdown() async {
+        guard !shutdownStarted else { return }
+        shutdownStarted = true
         reconcileRequested = false
         reconcileTask?.cancel()
         permissionMonitorTask?.cancel()

@@ -1,3 +1,10 @@
+//
+//  ContentView.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import AppKit
 import Carbon.HIToolbox
 import KeyboardShortcuts

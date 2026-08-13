@@ -1,3 +1,10 @@
+//
+//  ConfigurationStore.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import Foundation
 
 nonisolated struct ServiceOwnership: Codable, Equatable, Sendable {

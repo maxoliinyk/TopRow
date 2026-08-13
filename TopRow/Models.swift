@@ -1,3 +1,10 @@
+//
+//  Models.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import AppKit
 import Carbon.HIToolbox
 import Foundation
@@ -115,11 +122,20 @@ nonisolated enum FunctionRowAction: String, CaseIterable, Codable, Identifiable,
     var id: Self { self }
 
     var physicalKey: FunctionKey {
-        FunctionKey(rawValue: ordinal + 1)!
-    }
-
-    private var ordinal: Int {
-        Self.allCases.firstIndex(of: self)!
+        switch self {
+        case .brightnessDown: .f1
+        case .brightnessUp: .f2
+        case .missionControl: .f3
+        case .spotlight: .f4
+        case .dictation: .f5
+        case .focus: .f6
+        case .previous: .f7
+        case .playPause: .f8
+        case .next: .f9
+        case .mute: .f10
+        case .volumeDown: .f11
+        case .volumeUp: .f12
+        }
     }
 
     var title: String {

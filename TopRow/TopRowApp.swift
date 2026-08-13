@@ -1,11 +1,21 @@
+//
+//  TopRowApp.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import AppKit
 import SwiftUI
 
 @MainActor
 final class TopRowAppDelegate: NSObject, NSApplicationDelegate {
     static var applicationState: ApplicationState?
+    private var terminationStarted = false
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard !terminationStarted else { return .terminateLater }
+        terminationStarted = true
         guard let applicationState = Self.applicationState else { return .terminateNow }
 
         Task { @MainActor in
@@ -71,10 +81,7 @@ private struct MenuBarView: View {
         Divider()
 
         Button("Quit") {
-            Task { @MainActor in
-                await applicationState.shutdown()
-                NSApp.terminate(nil)
-            }
+            NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
     }

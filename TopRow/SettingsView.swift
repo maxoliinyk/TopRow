@@ -1,3 +1,10 @@
+//
+//  SettingsView.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import SwiftUI
 
 struct SettingsView: View {

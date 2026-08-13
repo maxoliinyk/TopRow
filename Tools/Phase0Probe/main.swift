@@ -1,3 +1,10 @@
+//
+//  main.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import Carbon.HIToolbox
 import CoreFoundation
 import Darwin

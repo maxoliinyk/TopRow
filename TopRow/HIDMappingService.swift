@@ -1,3 +1,10 @@
+//
+//  HIDMappingService.swift
+//  TopRow
+//
+//  Created by Max Oliinyk on 13.08.26.
+//
+
 import Foundation
 import IOKit
 import IOKit.hidsystem
@@ -90,131 +97,210 @@ nonisolated enum HIDMappingMerge {
 }
 
 actor HIDMappingService {
-    private let propertyKey = "UserKeyMapping" as CFString
-    private let genericDesktopPage: UInt32 = 0x01
-    private let keyboardUsage: UInt32 = 0x06
+    private static let propertyKeyValue = "UserKeyMapping"
+    private static let genericDesktopPage: UInt32 = 0x01
+    private static let keyboardUsage: UInt32 = 0x06
+
+    // IOHID's C client keeps internal unfair locks and service references that
+    // are sensitive to thread affinity. The actor serializes callers, but an
+    // actor may resume on different cooperative threads between calls. Keep
+    // every HID framework operation on one dedicated serial thread as well.
+    private let ioQueue = DispatchQueue(
+        label: "com.maxoliinyk.TopRow.hid-io",
+        qos: .userInitiated,
+        autoreleaseFrequency: .workItem
+    )
 
     func availableServices() -> [HIDServiceDescriptor] {
-        let services = enumerateServices()
-        defer { services.forEach { Unmanaged.passUnretained($0.client).release() } }
-        return services.map(\.descriptor)
+        let queue = ioQueue
+        return queue.sync {
+            Self.withSelectedServices { services in
+                services.map(\.descriptor)
+            }
+        }
     }
 
     func apply(
         desired: [HIDMappingPair],
         ownership: OwnershipState
     ) -> HIDApplyResult {
-        let services = enumerateServices()
-        guard !services.isEmpty else {
-            return HIDApplyResult(
-                selectedServices: [],
-                snapshots: [],
-                ownership: ownership,
-                conflicts: [:],
-                error: .unavailableHardware
-            )
-        }
-
-        var nextOwnership = ownership
-        let selectedServices = services.map(\.descriptor)
-        var snapshots: [HIDServiceSnapshot] = []
-        var conflicts: [HIDUsage: HIDUsage] = [:]
-
-        for service in services {
-            defer { Unmanaged.passUnretained(service.client).release() }
-            let previous = ownership.ownership(for: service.descriptor.fingerprint)
-            let baseline = previous?.baseline ?? service.mappings
-            let previouslyApplied = previous?.applied ?? []
-            let merge = HIDMappingMerge.merge(
-                current: service.mappings,
-                baseline: baseline,
-                previouslyApplied: previouslyApplied,
-                desired: desired
-            )
-
-            // Record the intended ownership before the write so a partial
-            // multi-service update can still be reconciled on the next launch.
-            let record = ServiceOwnership(
-                fingerprint: service.descriptor.fingerprint,
-                baseline: baseline,
-                applied: merge.applied
-            )
-            nextOwnership.update(record)
-
-            if merge.mappings != service.mappings {
-                let success = setMappings(merge.mappings, on: service.client)
-                guard success else {
+        let queue = ioQueue
+        return queue.sync {
+            Self.withSelectedServices { services in
+                guard !services.isEmpty else {
                     return HIDApplyResult(
-                        selectedServices: selectedServices,
-                        snapshots: snapshots,
-                        ownership: nextOwnership,
-                        conflicts: conflicts,
-                        error: .writeFailed
+                        selectedServices: [],
+                        snapshots: [],
+                        ownership: ownership,
+                        conflicts: [:],
+                        error: .unavailableHardware
                     )
                 }
-            }
 
-            let verified = readMappings(from: service.client)
-            guard verified == merge.mappings else {
+                // A missing UserKeyMapping property is the normal “no
+                // remap” state. A malformed property is different: applying
+                // a plan without knowing the complete current array could
+                // overwrite another tool's mapping, so fail closed.
+                guard !services.contains(where: { $0.mappingRead.isInvalid }) else {
+                    return HIDApplyResult(
+                        selectedServices: services.map(\.descriptor),
+                        snapshots: [],
+                        ownership: ownership,
+                        conflicts: [:],
+                        error: .readFailed
+                    )
+                }
+
+                var nextOwnership = ownership
+                let selectedServices = services.map(\.descriptor)
+                var snapshots: [HIDServiceSnapshot] = []
+                var conflicts: [HIDUsage: HIDUsage] = [:]
+
+                for service in services {
+                    let previous = ownership.ownership(for: service.descriptor.fingerprint)
+                    let baseline = previous?.baseline ?? service.mappingRead.mappings
+                    let previouslyApplied = previous?.applied ?? []
+                    let merge = HIDMappingMerge.merge(
+                        current: service.mappingRead.mappings,
+                        baseline: baseline,
+                        previouslyApplied: previouslyApplied,
+                        desired: desired
+                    )
+
+                    // Record the intended ownership before the write so a partial
+                    // multi-service update can still be reconciled on the next launch.
+                    let record = ServiceOwnership(
+                        fingerprint: service.descriptor.fingerprint,
+                        baseline: baseline,
+                        applied: merge.applied
+                    )
+                    nextOwnership.update(record)
+
+                    if merge.mappings != service.mappingRead.mappings {
+                        let success = Self.setMappings(merge.mappings, on: service.client)
+                        guard success else {
+                            return HIDApplyResult(
+                                selectedServices: selectedServices,
+                                snapshots: snapshots,
+                                ownership: nextOwnership,
+                                conflicts: conflicts,
+                                error: .writeFailed
+                            )
+                        }
+                    }
+
+                    let verified: [HIDMappingPair]
+                    switch Self.readMappings(from: service.client) {
+                    case let .values(values):
+                        verified = values
+                    case .missing:
+                        // Clearing the last mapping can make macOS remove the
+                        // property entirely. That is equivalent to [] for
+                        // verification; a missing property cannot satisfy a
+                        // non-empty desired array.
+                        guard merge.mappings.isEmpty else {
+                            return HIDApplyResult(
+                                selectedServices: selectedServices,
+                                snapshots: snapshots,
+                                ownership: nextOwnership,
+                                conflicts: conflicts,
+                                error: .readFailed
+                            )
+                        }
+                        verified = []
+                    case .invalid:
+                        return HIDApplyResult(
+                            selectedServices: selectedServices,
+                            snapshots: snapshots,
+                            ownership: nextOwnership,
+                            conflicts: conflicts,
+                            error: .readFailed
+                        )
+                    }
+                    guard verified == merge.mappings else {
+                        return HIDApplyResult(
+                            selectedServices: selectedServices,
+                            snapshots: snapshots,
+                            ownership: nextOwnership,
+                            conflicts: conflicts,
+                            error: .verificationFailed
+                        )
+                    }
+
+                    conflicts.merge(merge.conflicts) { _, new in new }
+                    snapshots.append(HIDServiceSnapshot(descriptor: service.descriptor, mappings: verified))
+                }
+
                 return HIDApplyResult(
                     selectedServices: selectedServices,
                     snapshots: snapshots,
                     ownership: nextOwnership,
                     conflicts: conflicts,
-                    error: .verificationFailed
+                    error: nil
                 )
             }
-
-            conflicts.merge(merge.conflicts) { _, new in new }
-            snapshots.append(HIDServiceSnapshot(descriptor: service.descriptor, mappings: verified))
         }
-
-        return HIDApplyResult(
-            selectedServices: selectedServices,
-            snapshots: snapshots,
-            ownership: nextOwnership,
-            conflicts: conflicts,
-            error: nil
-        )
     }
 
     private struct ServiceHandle {
         let client: IOHIDServiceClient
         let descriptor: HIDServiceDescriptor
-        let mappings: [HIDMappingPair]
+        let mappingRead: MappingRead
     }
 
-    private func enumerateServices() -> [ServiceHandle] {
+    private enum MappingRead {
+        case missing
+        case values([HIDMappingPair])
+        case invalid
+
+        var mappings: [HIDMappingPair] {
+            switch self {
+            case .missing, .invalid: []
+            case let .values(mappings): mappings
+            }
+        }
+
+        var isInvalid: Bool {
+            if case .invalid = self { return true }
+            return false
+        }
+    }
+
+    /// The HID framework's service references are only valid while the event
+    /// system client and copied service array are alive. Keep all reads/writes
+    /// inside this synchronous scope; never return a raw service pointer to a
+    /// later actor turn.
+    private static func withSelectedServices<Result>(
+        _ body: ([ServiceHandle]) -> Result
+    ) -> Result {
         let client = IOHIDEventSystemClientCreateSimpleClient(kCFAllocatorDefault)
-        guard let services = IOHIDEventSystemClientCopyServices(client) else { return [] }
+        guard let services = IOHIDEventSystemClientCopyServices(client) else {
+            return body([])
+        }
 
         var handles: [ServiceHandle] = []
         for index in 0..<CFArrayGetCount(services) {
             guard let raw = CFArrayGetValueAtIndex(services, index) else { continue }
             let service = unsafeBitCast(raw, to: IOHIDServiceClient.self)
-            _ = Unmanaged.passUnretained(service).retain()
 
-            let product = stringProperty(service, key: "Product") ?? "Unknown keyboard"
-            let transport = stringProperty(service, key: "Transport") ?? ""
-            let builtIn = boolProperty(service, key: "Built-In")
+            let product = Self.stringProperty(service, key: "Product") ?? "Unknown keyboard"
+            let transport = Self.stringProperty(service, key: "Transport") ?? ""
+            let builtIn = Self.boolProperty(service, key: "Built-In")
             guard HIDServiceSelector.accepts(
-                conformsToKeyboard: IOHIDServiceClientConformsTo(service, genericDesktopPage, keyboardUsage) != 0,
+                conformsToKeyboard: IOHIDServiceClientConformsTo(service, Self.genericDesktopPage, Self.keyboardUsage) != 0,
                 product: product,
                 transport: transport,
                 isBuiltIn: builtIn
-            ) else {
-                Unmanaged.passUnretained(service).release()
-                continue
-            }
+            ) else { continue }
 
             let registryID = (IOHIDServiceClientGetRegistryID(service) as? NSNumber)?.uint64Value ?? 0
             let fingerprint = [
                 product,
                 transport,
-                stringProperty(service, key: "Manufacturer") ?? "",
-                numberProperty(service, key: "VendorID")?.stringValue ?? "",
-                numberProperty(service, key: "ProductID")?.stringValue ?? "",
-                numberProperty(service, key: "LocationID")?.stringValue ?? ""
+                Self.stringProperty(service, key: "Manufacturer") ?? "",
+                Self.numberProperty(service, key: "VendorID")?.stringValue ?? "",
+                Self.numberProperty(service, key: "ProductID")?.stringValue ?? "",
+                Self.numberProperty(service, key: "LocationID")?.stringValue ?? ""
             ].joined(separator: "|")
 
             handles.append(ServiceHandle(
@@ -225,52 +311,68 @@ actor HIDMappingService {
                     product: product,
                     isBuiltIn: builtIn || product.localizedCaseInsensitiveContains("apple internal keyboard")
                 ),
-                mappings: readMappings(from: service)
+                mappingRead: Self.readMappings(from: service)
             ))
         }
 
-        return handles
+        // Keep both the event client and copied service array alive through the
+        // entire transaction. Service pointers are borrowed from that array.
+        return withExtendedLifetime(client) {
+            withExtendedLifetime(services) {
+                body(handles)
+            }
+        }
     }
 
-    private func readMappings(from service: IOHIDServiceClient) -> [HIDMappingPair] {
-        guard let property = IOHIDServiceClientCopyProperty(service, propertyKey) else {
-            return []
+    private static func readMappings(from service: IOHIDServiceClient) -> MappingRead {
+        guard let property = IOHIDServiceClientCopyProperty(service, propertyKeyValue as CFString) else {
+            return .missing
         }
 
-        guard let array = property as? [Any] else { return [] }
-        return array.compactMap { item in
-            guard let dictionary = item as? [String: Any] else { return nil }
-            guard
-                let source = (dictionary["HIDKeyboardModifierMappingSrc"] as? NSNumber)?.uint64Value,
-                let destination = (dictionary["HIDKeyboardModifierMappingDst"] as? NSNumber)?.uint64Value
-            else { return nil }
+        guard let array = property as? [Any] else { return .invalid }
+        var mappings: [HIDMappingPair] = []
+        mappings.reserveCapacity(array.count)
 
-            return HIDMappingPair(
+        for item in array {
+            guard let dictionary = item as? [String: Any],
+                  let source = (dictionary["HIDKeyboardModifierMappingSrc"] as? NSNumber)?.uint64Value,
+                  let destination = (dictionary["HIDKeyboardModifierMappingDst"] as? NSNumber)?.uint64Value
+            else { return .invalid }
+
+            mappings.append(HIDMappingPair(
                 source: HIDUsage(page: UInt32(source >> 32), usage: UInt32(source & 0xFFFF_FFFF)),
                 destination: HIDUsage(page: UInt32(destination >> 32), usage: UInt32(destination & 0xFFFF_FFFF))
-            )
+            ))
         }
+
+        let canonical = Set(mappings).sorted { lhs, rhs in
+            if lhs.source.rawValue == rhs.source.rawValue {
+                return lhs.destination.rawValue < rhs.destination.rawValue
+            }
+            return lhs.source.rawValue < rhs.source.rawValue
+        }
+        return .values(canonical)
     }
 
-    private func setMappings(_ mappings: [HIDMappingPair], on service: IOHIDServiceClient) -> Bool {
+    private static func setMappings(_ mappings: [HIDMappingPair], on service: IOHIDServiceClient) -> Bool {
         let array: [[String: Any]] = mappings.map { pair in
             [
                 "HIDKeyboardModifierMappingSrc": NSNumber(value: pair.source.rawValue),
                 "HIDKeyboardModifierMappingDst": NSNumber(value: pair.destination.rawValue)
             ]
         }
-        return IOHIDServiceClientSetProperty(service, propertyKey, array as NSArray)
+        return IOHIDServiceClientSetProperty(service, propertyKeyValue as CFString, array as NSArray)
     }
 
-    private func stringProperty(_ service: IOHIDServiceClient, key: String) -> String? {
+    private static func stringProperty(_ service: IOHIDServiceClient, key: String) -> String? {
         IOHIDServiceClientCopyProperty(service, key as CFString) as? String
     }
 
-    private func boolProperty(_ service: IOHIDServiceClient, key: String) -> Bool {
+    private static func boolProperty(_ service: IOHIDServiceClient, key: String) -> Bool {
         (IOHIDServiceClientCopyProperty(service, key as CFString) as? NSNumber)?.boolValue ?? false
     }
 
-    private func numberProperty(_ service: IOHIDServiceClient, key: String) -> NSNumber? {
+    private static func numberProperty(_ service: IOHIDServiceClient, key: String) -> NSNumber? {
         IOHIDServiceClientCopyProperty(service, key as CFString) as? NSNumber
     }
 }
