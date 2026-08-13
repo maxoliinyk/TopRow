@@ -15,10 +15,9 @@ nonisolated struct ProxyPlan: Equatable, Sendable {
 }
 
 nonisolated struct ProxyAllocator: Sendable {
-    static let proxyKeys: [FunctionKey] = [
-        .f13, .f14, .f15, .f16, .f17, .f18,
-        .f19, .f20, .f21, .f22, .f23, .f24
-    ]
+    /// Keys that are safe for TopRow to claim. F14/F15 remain reserved for
+    /// macOS brightness controls on the supported built-in keyboards.
+    static let proxyKeys: [FunctionKey] = FunctionKey.destinationKeys
 
     /// Allocates one distinct proxy per shortcut source. The caller supplies
     /// the keys that have been proven listenable on the current system.

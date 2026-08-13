@@ -59,6 +59,17 @@ nonisolated enum FunctionKey: Int, CaseIterable, Codable, Identifiable, Sendable
 
     var label: String { "F\(rawValue)" }
 
+    /// F14 and F15 are reserved by macOS on the supported MacBook keyboards
+    /// (brightness controls). They must not be used as a direct destination or
+    /// as a shortcut proxy, otherwise a remap can steal a system control.
+    static let destinationKeys: [Self] = [
+        .f13, .f16, .f17, .f18, .f19, .f20, .f21, .f22, .f23, .f24
+    ]
+
+    var isSelectableDestination: Bool {
+        Self.destinationKeys.contains(self)
+    }
+
     var hidUsage: HIDUsage {
         if rawValue <= 12 {
             return HIDUsage(page: 0x07, usage: UInt32(0x39 + rawValue))
@@ -69,6 +80,7 @@ nonisolated enum FunctionKey: Int, CaseIterable, Codable, Identifiable, Sendable
 
     /// Carbon currently publishes virtual-key constants through F20.
     /// F21–F24 remain valid HID destinations but need hardware key-code discovery.
+    /// F14/F15 are intentionally excluded from TopRow's destination catalog.
     var carbonKeyCode: Int? {
         switch self {
         case .f1: Int(kVK_F1)
@@ -414,8 +426,19 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
         for mapping in mappings {
             values[mapping.action] = mapping.destination
         }
-        mappings = FunctionRowAction.allCases.map {
-            FunctionRowMapping(action: $0, destination: values[$0] ?? .systemDefault)
+
+        // A function-key destination is a shared physical resource. Keep the
+        // first valid assignment in the stable action order and clear later or
+        // unsupported assignments rather than silently creating duplicates.
+        var usedFunctionKeys = Set<FunctionKey>()
+        mappings = FunctionRowAction.allCases.map { action in
+            var destination = values[action] ?? .systemDefault
+            if case let .functionKey(key) = destination {
+                if !key.isSelectableDestination || !usedFunctionKeys.insert(key).inserted {
+                    destination = .systemDefault
+                }
+            }
+            return FunctionRowMapping(action: action, destination: destination)
         }
         schemaVersion = Self.currentSchemaVersion
     }

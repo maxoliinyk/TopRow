@@ -115,7 +115,7 @@ nonisolated enum ShortcutValidation {
         from shortcut: StoredShortcut
     ) -> MappingDestination {
         if let functionKey = shortcut.functionKey {
-            return .functionKey(functionKey)
+            return functionKey.isSelectableDestination ? .functionKey(functionKey) : .systemDefault
         }
         return .shortcut(shortcut)
     }

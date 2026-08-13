@@ -57,13 +57,32 @@ struct SettingsView: View {
                 PermissionStatusRow(appState: appState)
 
                 if appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {
-                    Button("Allow Shortcut Output") {
-                        appState.requestPostEventAccess()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Enable shortcut output")
+                            .font(.callout.weight(.semibold))
+                        Text("Core Graphics calls this Post Event access. macOS lists the switch under Privacy & Security › Accessibility.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Text("1. Open Accessibility settings.  2. Turn on TopRow.  3. Return here and check again.")
+                            .font(.caption)
+
+                        HStack(spacing: 8) {
+                            Button("Open Accessibility Settings…") {
+                                appState.requestPostEventAccess()
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button("Check Again") {
+                                appState.refreshPostEventAccess()
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .padding(.vertical, 4)
                 }
 
-                Text("Direct Function Key destinations do not need this permission. Shortcut destinations use narrow Post Event access to send their key sequence to the active app; TopRow does not install an event tap or request Input Monitoring.")
+                Text("Direct Function Key destinations do not need this permission. TopRow only posts the shortcut you configure; it does not monitor keyboard input, install an event tap, or request Input Monitoring.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
@@ -165,7 +184,7 @@ private struct PermissionStatusRow: View {
         if appState.isPostEventAccessGranted {
             return "TopRow can emit configured shortcuts through CGEvent."
         }
-        return "Allow TopRow in System Settings › Privacy & Security › Post Event Access."
+        return "Turn on TopRow in System Settings › Privacy & Security › Accessibility."
     }
 
     private var iconName: String {

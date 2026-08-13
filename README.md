@@ -1,6 +1,6 @@
 # TopRow
 
-Remap the special actions on your Mac’s function row without changing the F1–F12 keys underneath them.
+Remap the actions on your Mac’s Top Row without changing the F1–F12 keys underneath them.
 
 For example:
 
@@ -11,9 +11,9 @@ normal Dictation key → F13
 Fn + Dictation key   → F5
 ```
 
-TopRow is a small native macOS utility for modern Apple Silicon MacBook keyboards. It supports direct F13–F24 destinations and ordinary keyboard shortcut destinations. Shortcut output uses macOS Post Event access only when configured.
+TopRow is a small native macOS utility for modern Apple Silicon MacBook keyboards. It supports direct F13 and F16–F24 destinations; F14 and F15 stay reserved for macOS brightness controls. Ordinary keyboard shortcut destinations use macOS Post Event access only when configured.
 
-The main window is a focused function-row editor; remapping and Launch at Login are managed from the app's native Settings window. Enable Remapping is an immediate switch, and the Keyboard Service section reports whether the built-in HID service was found, whether macOS rejected a write, or whether a saved mapping is conflicted. Shortcut destinations explain and request Post Event access in place; Accessibility and Input Monitoring are not required.
+The main window is a focused function-row editor; remapping and Launch at Login are managed from the app's native Settings window. Enable Remapping is an immediate switch, and the Keyboard Service section reports whether the built-in HID service was found, whether macOS rejected a write, or whether a saved mapping is conflicted. Shortcut destinations explain and request the narrow Core Graphics Post Event privilege in place. macOS exposes that switch under Privacy & Security > Accessibility, but TopRow does not use the Accessibility APIs or request Input Monitoring.
 
 Shortcut destinations use a key-only recorder: choose Command, Option, Control, and/or Shift with the modifier buttons, then click the key field and press only the base key. This lets you configure destinations such as `⌘Space` without opening Spotlight while recording. TopRow uses the `KeyboardShortcuts` package's shortcut representation and validation, while keeping the app's own storage and runtime as the source of truth.
 

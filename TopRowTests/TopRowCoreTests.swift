@@ -46,6 +46,24 @@ struct TopRowCoreTests {
     }
 
     @Test
+    func destinationKeysExcludeBrightnessControls() {
+        #expect(!FunctionKey.destinationKeys.contains(.f14))
+        #expect(!FunctionKey.destinationKeys.contains(.f15))
+        #expect(FunctionKey.destinationKeys == [.f13, .f16, .f17, .f18, .f19, .f20, .f21, .f22, .f23, .f24])
+    }
+
+    @Test
+    func configurationRejectsReservedAndDuplicateFunctionDestinations() {
+        var configuration = AppConfiguration.defaults
+        configuration.setDestination(.functionKey(.f14), for: .brightnessDown)
+        configuration.setDestination(.functionKey(.f13), for: .brightnessDown)
+        configuration.setDestination(.functionKey(.f13), for: .brightnessUp)
+
+        #expect(configuration.destination(for: .brightnessDown) == .functionKey(.f13))
+        #expect(configuration.destination(for: .brightnessUp) == .systemDefault)
+    }
+
+    @Test
     func serviceSelectorFailsClosedForExternalAndVirtualServices() {
         #expect(HIDServiceSelector.accepts(
             conformsToKeyboard: true,
@@ -116,7 +134,7 @@ struct TopRowCoreTests {
     }
 
     @Test
-    func proxyAllocatorSupportsTwelveShortcuts() {
+    func proxyAllocatorReportsUnavailableShortcutsWhenBrightnessKeysAreReserved() {
         let sources = FunctionRowAction.allCases
         let destinations = Dictionary(uniqueKeysWithValues: sources.map {
             ($0, MappingDestination.shortcut(StoredShortcut(carbonKeyCode: 10, carbonModifiers: 0)))
@@ -127,9 +145,9 @@ struct TopRowCoreTests {
         }
         let plan = ProxyAllocator().allocate(configuration: configuration, unavailableKeys: [], previous: [:])
 
-        #expect(plan.assignments.count == 12)
-        #expect(Set(plan.assignments.values).count == 12)
-        #expect(plan.unavailable.isEmpty)
+        #expect(plan.assignments.count == FunctionKey.destinationKeys.count)
+        #expect(Set(plan.assignments.values).count == FunctionKey.destinationKeys.count)
+        #expect(plan.unavailable.count == sources.count - FunctionKey.destinationKeys.count)
     }
 
     @Test
@@ -240,7 +258,7 @@ struct TopRowCoreTests {
     }
 
     @Test
-    func duplicateDirectDestinationsDoNotConsumeDuplicateProxyCapacity() {
+    func duplicateDirectDestinationsAreClearedAndNeverReused() {
         var configuration = AppConfiguration.defaults
         configuration.setDestination(.functionKey(.f13), for: .brightnessDown)
         configuration.setDestination(.functionKey(.f13), for: .brightnessUp)
@@ -251,7 +269,9 @@ struct TopRowCoreTests {
 
         let plan = ProxyAllocator().allocate(configuration: configuration, unavailableKeys: [], previous: [:])
 
-        #expect(plan.assignments[.spotlight] == .f14)
+        #expect(configuration.destination(for: .brightnessDown) == .functionKey(.f13))
+        #expect(configuration.destination(for: .brightnessUp) == .systemDefault)
+        #expect(plan.assignments[.spotlight] == .f16)
         #expect(plan.unavailable.isEmpty)
     }
 
