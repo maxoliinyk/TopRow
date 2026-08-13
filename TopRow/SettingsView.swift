@@ -75,7 +75,7 @@ struct SettingsView: View {
             } header: {
                 Text("Keyboard Service")
             } footer: {
-                Text("TopRow only selects the built-in Apple keyboard. External, Touch Bar, and virtual services are left untouched. Direct HID access is intentionally unsandboxed in this v1 build because macOS rejects these property writes from a sandboxed app.")
+                Text("TopRow only selects the built-in Apple keyboard. External, Touch Bar, and virtual services are left untouched. Direct HID access is used by this personal-build workflow; no helper, driver, or elevated process is involved.")
             }
 
             Section {

@@ -8,44 +8,36 @@ struct ContentView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        ScrollView([.vertical, .horizontal], showsIndicators: false) {
-            VStack(spacing: 22) {
-                HeaderView(
-                    status: appState.overallStatus,
-                    detail: appState.overallStatusDetail,
-                    systemImage: headerSystemImage,
-                    tone: headerTone
-                )
+        VStack(spacing: 18) {
+            HeaderView(
+                status: appState.overallStatus,
+                detail: appState.overallStatusDetail,
+                systemImage: headerSystemImage,
+                tone: headerTone
+            )
 
-                FunctionRowCard(appState: appState)
+            FunctionRowCard(appState: appState)
 
-                HStack {
-                    Spacer(minLength: 0)
-                    MappingEditor(appState: appState, action: appState.selectedAction)
-                    Spacer(minLength: 0)
+            MappingEditor(appState: appState, action: appState.selectedAction)
+
+            HStack(spacing: 10) {
+                Image(systemName: "gearshape")
+                    .foregroundStyle(.secondary)
+                Text("Remapping and launch behavior live in Settings.")
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Button("Open Settings…") {
+                    openSettings()
                 }
-
-                HStack(spacing: 10) {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(.secondary)
-                    Text("Remapping and launch behavior live in Settings.")
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    Button("Open Settings…") {
-                        openSettings()
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .font(.callout)
-                .frame(maxWidth: 700)
+                .buttonStyle(.bordered)
             }
-            .frame(maxWidth: 1160)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 34)
-            .padding(.vertical, 30)
+            .font(.callout)
+            .frame(maxWidth: 700)
         }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 24)
+        .frame(width: 1180, height: 720)
         .background(Color(nsColor: .windowBackgroundColor))
-        .frame(minWidth: 920, idealWidth: 1180, minHeight: 560, idealHeight: 660)
         .task {
             await appState.start()
         }
@@ -158,25 +150,22 @@ private struct FunctionRowCard: View {
                     .background(.quaternary, in: Capsule())
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(FunctionRowAction.allCases) { action in
-                        FunctionKeyCap(
-                            action: action,
-                            destination: appState.configuration.destination(for: action),
-                            status: appState.status(for: action),
-                            isSelected: appState.selectedAction == action
-                        ) {
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                appState.selectedAction = action
-                            }
+            HStack(spacing: 10) {
+                ForEach(FunctionRowAction.allCases) { action in
+                    FunctionKeyCap(
+                        action: action,
+                        destination: appState.configuration.destination(for: action),
+                        status: appState.status(for: action),
+                        isSelected: appState.selectedAction == action
+                    ) {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            appState.selectedAction = action
                         }
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 4)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
         }
         .padding(20)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -184,6 +173,7 @@ private struct FunctionRowCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Color.primary.opacity(0.08), lineWidth: 1)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -482,6 +472,8 @@ private struct StatusBanner: View {
             Image(systemName: systemImage)
                 .frame(width: 17)
             Text(message)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.caption)

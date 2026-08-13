@@ -66,15 +66,15 @@ final class ApplicationState {
         if case .unavailable = hidServiceState, hasConfiguredMappings {
             return "No supported keyboard found"
         }
+        if lastError != nil || launchAtLoginError != nil {
+            return "Mapping needs attention"
+        }
         if statuses.values.contains(where: {
             if case .conflict = $0 { return true }
             if case .inactive = $0 { return true }
             return false
         }) {
             return "Some mappings need attention"
-        }
-        if lastError != nil || launchAtLoginError != nil {
-            return "Mapping needs attention"
         }
         return "Remapping active"
     }

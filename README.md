@@ -17,7 +17,7 @@ The main window is a focused function-row editor; remapping and Launch at Login 
 
 The app intentionally does not provide general keyboard remapping, modifiers, macros, per-app profiles, external keyboard profiles, telemetry, or cloud sync.
 
-HID source usages are hardware-sensitive. The app filters for the built-in Apple keyboard and preserves unrelated `UserKeyMapping` entries, but the Phase 0 capture and cleanup proof must still be run on the specific Apple Silicon MacBook model before enabling a release build. Direct HID property writes currently require App Sandbox to be disabled; no root helper, driver, event tap, or Input Monitoring permission is used.
+HID source usages are hardware-sensitive. The app filters for the built-in Apple keyboard and preserves unrelated `UserKeyMapping` entries, but the Phase 0 capture and cleanup proof must still be run on the specific Apple Silicon MacBook model before enabling a release build. Direct HID property writes use the personal-build app directly; no root helper, driver, event tap, or Input Monitoring permission is used.
 
 ## Phase 0 release gate
 
@@ -40,7 +40,7 @@ Do not ship until the supported MacBook hardware proves all of the following:
 - a Spotlight proxy emits exactly one configured shortcut and does not recurse while held;
 - F13–F24 listener support is confirmed, including any raw F21–F24 key codes;
 - unrelated mappings are restored byte-for-byte or semantically identically after the experiment;
-- external keyboards remain untouched and the intended signing/sandbox configuration succeeds.
+- external keyboards remain untouched and the intended signed app succeeds.
 
 The probe is intentionally read-only. If its capture file is empty, treat that as an environment/permission result—not as evidence that a usage is absent—and perform the capture on the supported hardware with the intended app signing.
 
@@ -50,5 +50,7 @@ The probe is intentionally read-only. If its capture file is empty, treat that a
 - Apple Silicon
 - Swift 6 / SwiftUI
 - Xcode 27+
+
+Open `TopRow.xcodeproj` and select your own signing team for the app and test targets. The project does not include a developer-specific team or private signing configuration.
 
 The project uses Apple HID APIs and [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts). HID source usages are hardware-sensitive; validate them on the supported built-in keyboard before enabling remapping.

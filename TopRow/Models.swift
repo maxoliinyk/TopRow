@@ -477,7 +477,7 @@ nonisolated enum HIDServiceState: Equatable, Sendable {
 
             switch error {
             case .writeFailed:
-                return serviceText + "macOS rejected the HID mapping write. Direct function-key mappings do not use Post Event permission; this v1 build requires App Sandbox to be disabled."
+                return serviceText + "macOS rejected the HID mapping write. Direct function-key mappings do not use Post Event permission; TopRow left this key unchanged. Try again after relaunching the app."
             case .verificationFailed:
                 return serviceText + "macOS did not return the requested mapping after the write, so TopRow left this mapping inactive."
             case .readFailed:

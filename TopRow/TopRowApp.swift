@@ -32,7 +32,8 @@ struct TopRowApp: App {
             ContentView()
                 .environment(applicationState)
         }
-        .defaultSize(width: 1180, height: 660)
+        .defaultSize(width: 1180, height: 720)
+        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()
