@@ -91,7 +91,9 @@ actor HIDMappingService {
     private let keyboardUsage: UInt32 = 0x06
 
     func availableServices() -> [HIDServiceDescriptor] {
-        enumerateServices().map(\.descriptor)
+        let services = enumerateServices()
+        defer { services.forEach { Unmanaged.passUnretained($0.client).release() } }
+        return services.map(\.descriptor)
     }
 
     func apply(
@@ -113,6 +115,7 @@ actor HIDMappingService {
         var conflicts: [HIDUsage: HIDUsage] = [:]
 
         for service in services {
+            defer { Unmanaged.passUnretained(service.client).release() }
             let previous = ownership.ownership(for: service.descriptor.fingerprint)
             let baseline = previous?.baseline ?? service.mappings
             let previouslyApplied = previous?.applied ?? []
@@ -180,6 +183,7 @@ actor HIDMappingService {
         for index in 0..<CFArrayGetCount(services) {
             guard let raw = CFArrayGetValueAtIndex(services, index) else { continue }
             let service = unsafeBitCast(raw, to: IOHIDServiceClient.self)
+            _ = Unmanaged.passUnretained(service).retain()
 
             let product = stringProperty(service, key: "Product") ?? "Unknown keyboard"
             let transport = stringProperty(service, key: "Transport") ?? ""
