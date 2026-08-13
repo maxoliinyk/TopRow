@@ -247,4 +247,20 @@ struct TopRowCoreTests {
 
         #expect(shortcut.functionKey == .f18)
     }
+
+    @Test
+    func hidServiceStateExplainsWriteFailures() {
+        let service = HIDServiceDescriptor(
+            registryID: 42,
+            fingerprint: "Apple Internal Keyboard / Trackpad|FIFO",
+            product: "Apple Internal Keyboard / Trackpad",
+            isBuiltIn: true
+        )
+        let state = HIDServiceState.failed(.writeFailed, [service])
+
+        #expect(state.title == "Keyboard mapping needs attention")
+        #expect(state.detail.contains("macOS rejected the HID mapping write"))
+        #expect(state.detail.contains("Post Event permission"))
+        #expect(HIDServiceState.unavailable.detail.contains("External"))
+    }
 }

@@ -1,15 +1,162 @@
+import AppKit
 import Carbon.HIToolbox
 import KeyboardShortcuts
 import SwiftUI
 
 struct ContentView: View {
     @Environment(ApplicationState.self) private var appState
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        @Bindable var appState = appState
+        ScrollView([.vertical, .horizontal], showsIndicators: false) {
+            VStack(spacing: 22) {
+                HeaderView(
+                    status: appState.overallStatus,
+                    detail: appState.overallStatusDetail,
+                    systemImage: headerSystemImage,
+                    tone: headerTone
+                )
 
-        VStack(alignment: .leading) {
-            HeaderView(status: appState.overallStatus, isEnabled: appState.configuration.isEnabled)
+                FunctionRowCard(appState: appState)
+
+                HStack {
+                    Spacer(minLength: 0)
+                    MappingEditor(appState: appState, action: appState.selectedAction)
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: 10) {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.secondary)
+                    Text("Remapping and launch behavior live in Settings.")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Open Settings…") {
+                        openSettings()
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .font(.callout)
+                .frame(maxWidth: 700)
+            }
+            .frame(maxWidth: 1160)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 34)
+            .padding(.vertical, 30)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .frame(minWidth: 920, idealWidth: 1180, minHeight: 560, idealHeight: 660)
+        .task {
+            await appState.start()
+        }
+    }
+
+    private var headerSystemImage: String {
+        if !appState.configuration.isEnabled { return "pause.circle" }
+        if appState.isReconciling { return "ellipsis.circle" }
+        if appState.lastError != nil || appState.launchAtLoginError != nil { return "exclamationmark.triangle.fill" }
+        if appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {
+            return "lock.shield"
+        }
+        return appState.hidServiceState.systemImage
+    }
+
+    private var headerTone: StatusTone {
+        if !appState.configuration.isEnabled { return .neutral }
+        if appState.isReconciling || !appState.hidServiceState.isReady && !appState.hasConfiguredMappings {
+            return .neutral
+        }
+        if appState.lastError != nil || appState.launchAtLoginError != nil || appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {
+            return .warning
+        }
+        if appState.hidServiceState.isReady || !appState.hasConfiguredMappings {
+            return .success
+        }
+        return .warning
+    }
+}
+
+private enum StatusTone {
+    case neutral
+    case success
+    case warning
+
+    var color: Color {
+        switch self {
+        case .neutral: .secondary
+        case .success: .green
+        case .warning: .orange
+        }
+    }
+}
+
+private struct HeaderView: View {
+    let status: String
+    let detail: String?
+    let systemImage: String
+    let tone: StatusTone
+
+    var body: some View {
+        VStack(spacing: 11) {
+            Image(systemName: "keyboard")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.tint)
+                .frame(width: 48, height: 48)
+                .background(Color.accentColor.opacity(0.12), in: Circle())
+
+            Text("Function Row")
+                .font(.system(.largeTitle, design: .rounded).weight(.semibold))
+
+            Text("Choose what the twelve special keys do. Fn + F1–F12 always stays unchanged.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 560)
+
+            VStack(spacing: 7) {
+                Label(status, systemImage: systemImage)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(tone.color)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 7)
+                    .background(tone.color.opacity(0.12), in: Capsule())
+
+                if let detail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 680)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct FunctionRowCard: View {
+    @Bindable var appState: ApplicationState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Special keys")
+                        .font(.headline)
+                    Text("Select a key to edit its destination")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 16)
+
+                Text("F1–F12")
+                    .font(.caption.weight(.medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(.quaternary, in: Capsule())
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
@@ -20,73 +167,22 @@ struct ContentView: View {
                             status: appState.status(for: action),
                             isSelected: appState.selectedAction == action
                         ) {
-                            appState.selectedAction = action
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                appState.selectedAction = action
+                            }
                         }
                     }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 28)
                 .padding(.vertical, 4)
             }
-
-            Divider()
-
-            MappingEditor(appState: appState, action: appState.selectedAction)
-
-            Divider()
-
-            HStack {
-                Toggle(
-                    "Remapping Enabled",
-                    isOn: Binding(
-                        get: { appState.configuration.isEnabled },
-                        set: { appState.setEnabled($0) }
-                    )
-                )
-
-                Spacer()
-
-                Toggle(
-                    "Launch at Login",
-                    isOn: Binding(
-                        get: { appState.configuration.launchAtLogin },
-                        set: { appState.setLaunchAtLogin($0) }
-                    )
-                )
-            }
-            .toggleStyle(.checkbox)
-
-            if let lastError = appState.lastError {
-                Label(lastError, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
         }
-        .padding(24)
-        .frame(minWidth: 900, idealWidth: 1080, minHeight: 330, idealHeight: 360)
-        .task {
-            await appState.start()
-        }
-    }
-}
-
-private struct HeaderView: View {
-    let status: String
-    let isEnabled: Bool
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading) {
-                Text("Function Row")
-                    .font(.title2.weight(.semibold))
-                Text("Remap the primary actions without changing Fn + F1–F12.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Label(status, systemImage: isEnabled ? "checkmark.circle" : "pause.circle")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(isEnabled ? Color.secondary : Color.orange)
+        .padding(20)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
         }
     }
 }
@@ -102,22 +198,29 @@ private struct FunctionKeyCap: View {
 
     var body: some View {
         Button(action: select) {
-            VStack(spacing: 7) {
+            VStack(spacing: 8) {
                 Image(systemName: action.symbolName)
-                    .font(.system(size: 21, weight: .medium))
-                    .frame(height: 26)
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundStyle(isSelected ? Color.accentColor : .primary)
+                    .frame(height: 25)
 
                 Text(action.physicalKey.label)
                     .font(.caption.weight(.semibold).monospacedDigit())
 
                 Text(destination.summary)
-                    .font(.caption2)
-                    .foregroundStyle(destination == .systemDefault ? Color.secondary.opacity(0.65) : Color.accentColor)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(destination == .systemDefault ? .secondary : Color.accentColor)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.72)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(
+                        (destination == .systemDefault ? Color.secondary : Color.accentColor).opacity(0.10),
+                        in: Capsule()
+                    )
             }
-            .frame(width: 68, height: 78)
-            .contentShape(.rect(cornerRadius: 12))
+            .frame(width: 73, height: 92)
+            .contentShape(.rect(cornerRadius: 14))
         }
         .buttonStyle(KeyCapButtonStyle(isSelected: isSelected, isHovered: isHovered))
         .onHover { isHovered = $0 }
@@ -143,19 +246,20 @@ private struct KeyCapButtonStyle: ButtonStyle {
         configuration.label
             .foregroundStyle(.primary)
             .background {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.11) : Color.primary.opacity(isHovered ? 0.07 : 0.035))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .stroke(
-                                isSelected ? Color.accentColor : Color.primary.opacity(isHovered ? 0.22 : 0.10),
+                                isSelected ? Color.accentColor : Color.primary.opacity(isHovered ? 0.16 : 0.08),
                                 lineWidth: isSelected ? 2 : 1
                             )
                     }
             }
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.97 : (isHovered ? 1.01 : 1))
+            .opacity(configuration.isPressed ? 0.84 : 1)
+            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.14), value: isHovered)
     }
 }
 
@@ -163,6 +267,7 @@ private struct MappingEditor: View {
     let appState: ApplicationState
     let action: FunctionRowAction
     @State private var shortcutValidationMessage: String?
+    @State private var showingResetAllConfirmation = false
 
     private enum Mode: String, CaseIterable, Hashable {
         case systemDefault
@@ -179,69 +284,67 @@ private struct MappingEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading) {
+        VStack(alignment: .leading, spacing: 19) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text(action.title)
-                        .font(.headline)
+                        .font(.title3.weight(.semibold))
                     Text("Physical \(action.physicalKey.label)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
+
+                Spacer(minLength: 16)
+
                 Button("Reset Selected") {
                     appState.resetSelected()
                 }
                 .buttonStyle(.borderless)
 
-                Button("Reset All") {
-                    appState.resetAll()
+                Button("Reset All", role: .destructive) {
+                    showingResetAllConfirmation = true
                 }
                 .buttonStyle(.borderless)
             }
 
-            Picker("Remap to", selection: modeBinding) {
-                ForEach(Mode.allCases, id: \.self) { mode in
-                    Text(mode.title).tag(mode)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Destination")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Picker("Destination", selection: modeBinding) {
+                    ForEach(Mode.allCases, id: \.self) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .controlSize(.large)
             }
-            .pickerStyle(.segmented)
 
             destinationEditor
 
-            HStack(spacing: 6) {
-                Image(systemName: statusSymbol)
-                Text(statusMessage)
-            }
-            .font(.caption)
-            .foregroundStyle(statusColor)
+            StatusBanner(status: appState.status(for: action))
+        }
+        .padding(25)
+        .frame(maxWidth: 700)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
         }
         .animation(.easeInOut(duration: 0.18), value: appState.configuration.destination(for: action).summary)
-    }
-
-    private var statusSymbol: String {
-        switch appState.status(for: action) {
-        case .defaulted: "arrow.uturn.backward.circle"
-        case .active: "checkmark.circle"
-        case .inactive: "pause.circle"
-        case .conflict: "exclamationmark.triangle"
-        }
-    }
-
-    private var statusMessage: String {
-        switch appState.status(for: action) {
-        case .defaulted: "Using Apple’s original action"
-        case .active: "Mapping active"
-        case let .inactive(reason): reason
-        case let .conflict(reason): reason
-        }
-    }
-
-    private var statusColor: Color {
-        switch appState.status(for: action) {
-        case .defaulted: .secondary
-        case .active: .green
-        case .inactive, .conflict: .orange
+        .confirmationDialog(
+            "Reset every function-row key?",
+            isPresented: $showingResetAllConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset All", role: .destructive) {
+                appState.resetAll()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("All twelve keys will return to Apple's original actions.")
         }
     }
 
@@ -277,37 +380,57 @@ private struct MappingEditor: View {
     private var destinationEditor: some View {
         switch appState.configuration.destination(for: action) {
         case .systemDefault:
-            Label("Apple's original action", systemImage: "arrow.uturn.backward")
+            Label("Apple's original action", systemImage: "arrow.uturn.backward.circle")
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
         case .functionKey:
-            Picker("Function Key", selection: functionKeyBinding) {
-                ForEach(FunctionKey.allCases.filter { $0.rawValue >= 13 }) { functionKey in
-                    Text(functionKey.label).tag(functionKey)
-                }
-            }
-            .frame(maxWidth: 240)
-        case .shortcut:
-            KeyboardShortcuts.Recorder(shortcut: shortcutBinding)
-                .keyboardShortcutsConflictPolicy(.init(menuItem: .allow, systemShortcut: .warn, disallowed: .block))
-                .frame(maxWidth: 300)
-
-            if let shortcutValidationMessage {
-                Label(shortcutValidationMessage, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-
-            if !appState.isPostEventAccessGranted {
-                HStack {
-                    Label("Shortcut output needs permission to send keys to the active app.", systemImage: "lock.shield")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Open Privacy Settings") {
-                        appState.requestPostEventAccess()
-                        appState.openPrivacySettings()
+            HStack(spacing: 12) {
+                Label("Send as", systemImage: "function")
+                    .foregroundStyle(.secondary)
+                Picker("Function Key", selection: functionKeyBinding) {
+                    ForEach(FunctionKey.allCases.filter { $0.rawValue >= 13 }) { functionKey in
+                        Text(functionKey.label).tag(functionKey)
                     }
-                    .buttonStyle(.link)
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .controlSize(.large)
+                Spacer(minLength: 0)
+            }
+
+        case .shortcut:
+            VStack(alignment: .leading, spacing: 13) {
+                HStack(spacing: 12) {
+                    Label("Press", systemImage: "command")
+                        .foregroundStyle(.secondary)
+                    KeyboardShortcuts.Recorder(shortcut: shortcutBinding)
+                        .keyboardShortcutsConflictPolicy(.init(menuItem: .allow, systemShortcut: .warn, disallowed: .block))
+                        .controlSize(.large)
+                    Spacer(minLength: 0)
+                }
+
+                if let shortcutValidationMessage {
+                    Label(shortcutValidationMessage, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                if !appState.isPostEventAccessGranted {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Label("Shortcut output is paused", systemImage: "lock.shield")
+                            .font(.callout.weight(.semibold))
+                        Text("TopRow needs Post Event access to send this shortcut to the active app. This is separate from Accessibility and Input Monitoring.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Button("Allow Shortcut Output") {
+                            appState.requestPostEventAccess()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(13)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
             }
         }
@@ -348,6 +471,50 @@ private struct MappingEditor: View {
                 appState.setDestination(ShortcutValidation.normalizedDestination(from: stored), for: action)
             }
         )
+    }
+}
+
+private struct StatusBanner: View {
+    let status: MappingStatus
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: systemImage)
+                .frame(width: 17)
+            Text(message)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.caption)
+        .foregroundStyle(color)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .background(color.opacity(0.10), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var systemImage: String {
+        switch status {
+        case .defaulted: "arrow.uturn.backward.circle"
+        case .active: "checkmark.circle.fill"
+        case .inactive: "pause.circle"
+        case .conflict: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var message: String {
+        switch status {
+        case .defaulted: "Using Apple's original action"
+        case .active: "Mapping active"
+        case let .inactive(reason): reason
+        case let .conflict(reason): reason
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .defaulted: .secondary
+        case .active: .green
+        case .inactive, .conflict: .orange
+        }
     }
 }
 

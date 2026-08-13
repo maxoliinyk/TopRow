@@ -131,6 +131,10 @@ final class ShortcutRuntime {
             listenerTasks[action] = Task { [emitter] in
                 for await _ in KeyboardShortcuts.events(for: proxyShortcut) {
                     guard !Task.isCancelled else { return }
+                    // Permission can be revoked while a listener is alive.
+                    // Avoid posting a stale shortcut until reconciliation has
+                    // noticed the change and retired this listener.
+                    guard PostEventAccess().isGranted else { continue }
                     _ = emitter.emit(destination)
                 }
             }

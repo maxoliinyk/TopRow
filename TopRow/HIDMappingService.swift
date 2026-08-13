@@ -8,6 +8,10 @@ nonisolated struct HIDServiceSnapshot: Equatable, Sendable {
 }
 
 nonisolated struct HIDApplyResult: Equatable, Sendable {
+    /// The services selected by the built-in keyboard filter, including on a
+    /// failed write. This gives the UI enough context to distinguish “no
+    /// keyboard was found” from “macOS rejected a write”.
+    var selectedServices: [HIDServiceDescriptor]
     var snapshots: [HIDServiceSnapshot]
     var ownership: OwnershipState
     var conflicts: [HIDUsage: HIDUsage]
@@ -103,6 +107,7 @@ actor HIDMappingService {
         let services = enumerateServices()
         guard !services.isEmpty else {
             return HIDApplyResult(
+                selectedServices: [],
                 snapshots: [],
                 ownership: ownership,
                 conflicts: [:],
@@ -111,6 +116,7 @@ actor HIDMappingService {
         }
 
         var nextOwnership = ownership
+        let selectedServices = services.map(\.descriptor)
         var snapshots: [HIDServiceSnapshot] = []
         var conflicts: [HIDUsage: HIDUsage] = [:]
 
@@ -139,6 +145,7 @@ actor HIDMappingService {
                 let success = setMappings(merge.mappings, on: service.client)
                 guard success else {
                     return HIDApplyResult(
+                        selectedServices: selectedServices,
                         snapshots: snapshots,
                         ownership: nextOwnership,
                         conflicts: conflicts,
@@ -150,6 +157,7 @@ actor HIDMappingService {
             let verified = readMappings(from: service.client)
             guard verified == merge.mappings else {
                 return HIDApplyResult(
+                    selectedServices: selectedServices,
                     snapshots: snapshots,
                     ownership: nextOwnership,
                     conflicts: conflicts,
@@ -162,6 +170,7 @@ actor HIDMappingService {
         }
 
         return HIDApplyResult(
+            selectedServices: selectedServices,
             snapshots: snapshots,
             ownership: nextOwnership,
             conflicts: conflicts,
@@ -193,7 +202,10 @@ actor HIDMappingService {
                 product: product,
                 transport: transport,
                 isBuiltIn: builtIn
-            ) else { continue }
+            ) else {
+                Unmanaged.passUnretained(service).release()
+                continue
+            }
 
             let registryID = (IOHIDServiceClientGetRegistryID(service) as? NSNumber)?.uint64Value ?? 0
             let fingerprint = [

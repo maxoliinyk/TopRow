@@ -28,11 +28,16 @@ struct TopRowApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        WindowGroup("Function Row", id: "main") {
             ContentView()
                 .environment(applicationState)
         }
-        .defaultSize(width: 1080, height: 360)
+        .defaultSize(width: 1180, height: 660)
+
+        Settings {
+            SettingsView()
+                .environment(applicationState)
+        }
 
         MenuBarExtra("TopRow", systemImage: "keyboard") {
             MenuBarView(applicationState: applicationState)
@@ -44,20 +49,23 @@ struct TopRowApp: App {
 private struct MenuBarView: View {
     let applicationState: ApplicationState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Button("Open Function Row Settings") {
+        Button("Open Function Row") {
             openWindow(id: "main")
             NSApp.activate(ignoringOtherApps: true)
         }
 
-        Toggle(
-            "Remapping Enabled",
-            isOn: Binding(
-                get: { applicationState.configuration.isEnabled },
-                set: { applicationState.setEnabled($0) }
-            )
-        )
+        Button("Settings…") {
+            openSettings()
+            NSApp.activate(ignoringOtherApps: true)
+        }
+
+        Divider()
+
+        Label(applicationState.overallStatus, systemImage: "circle.fill")
+            .foregroundStyle(.secondary)
 
         Divider()
 

@@ -418,6 +418,75 @@ nonisolated struct HIDServiceDescriptor: Equatable, Hashable, Sendable {
     let fingerprint: String
     let product: String
     let isBuiltIn: Bool
+
+    var displayName: String {
+        product.isEmpty ? "Built-in Apple keyboard" : product
+    }
+}
+
+/// The small, user-facing state machine for the direct HID connection. Keeping
+/// this separate from `MappingStatus` lets the UI explain a service/write
+/// failure once, instead of repeating a generic error under every key.
+nonisolated enum HIDServiceState: Equatable, Sendable {
+    case checking
+    case unavailable
+    case available([HIDServiceDescriptor])
+    case failed(RemappingError, [HIDServiceDescriptor])
+
+    var title: String {
+        switch self {
+        case .checking: "Checking keyboard"
+        case .unavailable: "No supported keyboard found"
+        case .available: "Keyboard connected"
+        case .failed: "Keyboard mapping needs attention"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .checking: "ellipsis.circle"
+        case .unavailable: "keyboard.badge.exclamationmark"
+        case .available: "checkmark.circle.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        }
+    }
+
+    var isReady: Bool {
+        if case .available = self { return true }
+        return false
+    }
+
+    var detail: String {
+        switch self {
+        case .checking:
+            return "TopRow is looking for the built-in Apple keyboard service."
+        case .unavailable:
+            return "No supported built-in Apple keyboard service was found. External, Touch Bar, and virtual keyboards are intentionally ignored."
+        case let .available(services):
+            let names = services.map(\.displayName).joined(separator: ", ")
+            return names.isEmpty
+                ? "The built-in Apple keyboard is ready for a mapping."
+                : "Connected to \(names)."
+        case let .failed(error, services):
+            let serviceText: String
+            if services.isEmpty {
+                serviceText = "No supported built-in Apple keyboard service was available."
+            } else {
+                serviceText = "Found \(services.map(\.displayName).joined(separator: ", ")), but "
+            }
+
+            switch error {
+            case .writeFailed:
+                return serviceText + "macOS rejected the HID mapping write. Direct function-key mappings do not use Post Event permission; this v1 build requires App Sandbox to be disabled."
+            case .verificationFailed:
+                return serviceText + "macOS did not return the requested mapping after the write, so TopRow left this mapping inactive."
+            case .readFailed:
+                return serviceText + "TopRow could not read the keyboard's UserKeyMapping property."
+            default:
+                return serviceText + error.localizedDescription
+            }
+        }
+    }
 }
 
 nonisolated enum MappingStatus: Equatable, Sendable {
@@ -437,12 +506,12 @@ nonisolated enum RemappingError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .unavailableHardware: "The built-in function row is unavailable."
+        case .unavailableHardware: "No supported built-in Apple keyboard service was found."
         case .permissionRequired: "Shortcut output permission is required."
         case .noProxyAvailable: "No unused proxy function key is available."
-        case .readFailed: "TopRow could not read the keyboard mapping."
-        case .writeFailed: "TopRow could not apply the keyboard mapping."
-        case .verificationFailed: "The keyboard mapping could not be verified."
+        case .readFailed: "TopRow could not read the keyboard's UserKeyMapping property."
+        case .writeFailed: "macOS rejected the HID mapping write."
+        case .verificationFailed: "macOS did not return the requested keyboard mapping after the write."
         }
     }
 }

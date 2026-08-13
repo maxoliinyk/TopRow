@@ -10,7 +10,9 @@ final class ApplicationState {
     var statuses: [FunctionRowAction: MappingStatus]
     var isReconciling = false
     var lastError: String?
+    var launchAtLoginError: String?
     var isPostEventAccessGranted: Bool
+    var hidServiceState: HIDServiceState = .checking
 
     private let store: ConfigurationStore
     private let hidService = HIDMappingService()
@@ -19,6 +21,7 @@ final class ApplicationState {
     private var ownership: OwnershipState
     private var previousProxyAssignments: [FunctionRowAction: FunctionKey] = [:]
     private var reconcileTask: Task<Void, Never>?
+    private var permissionMonitorTask: Task<Void, Never>?
     private var reconcileRequested = false
     private var hasStarted = false
 
@@ -43,26 +46,80 @@ final class ApplicationState {
         }
     }
 
+    var hasConfiguredMappings: Bool {
+        configuration.mappings.contains { $0.destination != .systemDefault }
+    }
+
+    var hasDirectMappings: Bool {
+        configuration.mappings.contains {
+            if case .functionKey = $0.destination { return true }
+            return false
+        }
+    }
+
     var overallStatus: String {
         if isReconciling { return "Updating keyboard…" }
-        if let lastError { return lastError }
         if !configuration.isEnabled { return "Remapping disabled" }
         if requiresPostEventAccess && !isPostEventAccessGranted {
-            return "Shortcut permission required"
+            return "Shortcut output permission needed"
+        }
+        if case .unavailable = hidServiceState, hasConfiguredMappings {
+            return "No supported keyboard found"
         }
         if statuses.values.contains(where: {
             if case .conflict = $0 { return true }
+            if case .inactive = $0 { return true }
             return false
         }) {
             return "Some mappings need attention"
         }
+        if lastError != nil || launchAtLoginError != nil {
+            return "Mapping needs attention"
+        }
         return "Remapping active"
+    }
+
+    var overallStatusDetail: String? {
+        if isReconciling { return "Checking the built-in keyboard service…" }
+        if !configuration.isEnabled { return "Turn on Enable Remapping in Settings to apply your saved mappings." }
+        if requiresPostEventAccess && !isPostEventAccessGranted {
+            return "Keyboard shortcut destinations stay inactive until Post Event access is allowed in Privacy & Security."
+        }
+        if let lastError { return lastError }
+        if let launchAtLoginError { return launchAtLoginError }
+        if case let .inactive(reason) = statuses.values.first(where: {
+            if case .inactive = $0 { return true }
+            return false
+        }) {
+            return reason
+        }
+        if case let .conflict(reason) = statuses.values.first(where: {
+            if case .conflict = $0 { return true }
+            return false
+        }) {
+            return reason
+        }
+        if case .unavailable = hidServiceState, hasConfiguredMappings {
+            return hidServiceState.detail
+        }
+        return nil
     }
 
     func start() async {
         guard !hasStarted else { return }
         hasStarted = true
         serviceMonitor?.start()
+        permissionMonitorTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    break
+                }
+                refreshPostEventAccess()
+            }
+        }
         scheduleReconcile()
         if let reconcileTask {
             await reconcileTask.value
@@ -71,6 +128,7 @@ final class ApplicationState {
 
     func setDestination(_ destination: MappingDestination, for action: FunctionRowAction) {
         configuration.setDestination(destination, for: action)
+        lastError = nil
         store.save(configuration: configuration)
         scheduleReconcile()
     }
@@ -89,6 +147,7 @@ final class ApplicationState {
 
     func setEnabled(_ enabled: Bool) {
         configuration.isEnabled = enabled
+        lastError = nil
         store.save(configuration: configuration)
         scheduleReconcile()
     }
@@ -101,31 +160,52 @@ final class ApplicationState {
                 try SMAppService.mainApp.unregister()
             }
             configuration.launchAtLogin = enabled
+            lastError = nil
+            launchAtLoginError = nil
             store.save(configuration: configuration)
         } catch {
-            lastError = "Launch at login could not be updated."
+            launchAtLoginError = "Launch at login could not be updated: \(error.localizedDescription)"
         }
     }
 
     func requestPostEventAccess() {
         _ = PostEventAccess().request()
         isPostEventAccessGranted = PostEventAccess().isGranted
+        if !isPostEventAccessGranted {
+            openPrivacySettings()
+        }
         scheduleReconcile()
     }
 
     func openPrivacySettings() {
-        let urls = [
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_PostEvent",
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ]
-        if let url = urls.lazy.compactMap(URL.init(string:)).first(where: { NSWorkspace.shared.open($0) }) {
-            _ = url
+        let preferredURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_PostEvent")
+        let fallbackURL = URL(string: "x-apple.systempreferences:com.apple.preference.security")
+        if let preferredURL, NSWorkspace.shared.open(preferredURL) {
+            return
         }
+        if let fallbackURL {
+            _ = NSWorkspace.shared.open(fallbackURL)
+        }
+    }
+
+    func refreshPostEventAccess() {
+        let wasGranted = isPostEventAccessGranted
+        isPostEventAccessGranted = PostEventAccess().isGranted
+        if wasGranted != isPostEventAccessGranted {
+            scheduleReconcile()
+        }
+    }
+
+    func retryReconciliation() {
+        lastError = nil
+        scheduleReconcile()
     }
 
     func shutdown() async {
         reconcileRequested = false
         reconcileTask?.cancel()
+        permissionMonitorTask?.cancel()
+        permissionMonitorTask = nil
         if let reconcileTask {
             await reconcileTask.value
         }
@@ -205,7 +285,23 @@ final class ApplicationState {
         previousProxyAssignments = proxyPlan.assignments
 
         if let error = result.error {
-            lastError = error.localizedDescription
+            if error == .unavailableHardware {
+                hidServiceState = .unavailable
+            } else {
+                hidServiceState = .failed(error, result.selectedServices)
+            }
+        } else if result.selectedServices.isEmpty {
+            hidServiceState = .unavailable
+        } else {
+            hidServiceState = .available(result.selectedServices)
+        }
+
+        if result.error != nil {
+            let shouldSurfaceHIDFailure = configuration.isEnabled
+                && (hasDirectMappings || (requiresPostEventAccess && isPostEventAccessGranted))
+            if shouldSurfaceHIDFailure {
+                lastError = hidServiceState.detail
+            }
         }
 
         for action in FunctionRowAction.allCases {
@@ -215,7 +311,8 @@ final class ApplicationState {
                 proxyPlan: proxyPlan,
                 conflicts: result.conflicts,
                 error: result.error,
-                shortcutPermission: isPostEventAccessGranted
+                shortcutPermission: isPostEventAccessGranted,
+                hidState: hidServiceState
             )
         }
 
@@ -224,9 +321,17 @@ final class ApplicationState {
             return
         }
 
+        let conflictedActions = Set(
+            configuration.mappings.compactMap { mapping in
+                result.conflicts[mapping.action.candidateSourceUsage] == nil ? nil : mapping.action
+            }
+        )
+        let activeAssignments = proxyPlan.assignments.filter { !conflictedActions.contains($0.key) }
+        let activeDestinations = shortcutDestinations.filter { !conflictedActions.contains($0.key) }
+
         shortcutRuntime.update(
-            assignments: proxyPlan.assignments,
-            destinations: shortcutDestinations
+            assignments: activeAssignments,
+            destinations: activeDestinations
         )
     }
 
@@ -236,7 +341,8 @@ final class ApplicationState {
         proxyPlan: ProxyPlan,
         conflicts: [HIDUsage: HIDUsage],
         error: RemappingError?,
-        shortcutPermission: Bool
+        shortcutPermission: Bool,
+        hidState: HIDServiceState
     ) -> MappingStatus {
         let destination = configuration.destination(for: action)
         switch destination {
@@ -247,7 +353,7 @@ final class ApplicationState {
             if let conflict = conflicts[action.candidateSourceUsage] {
                 return .conflict("Another mapping sends this key to 0x\(String(conflict.rawValue, radix: 16))")
             }
-            return error == nil ? .active : .inactive(error?.localizedDescription ?? "Unavailable")
+            return error == nil ? .active : .inactive(hidState.detail)
         case .shortcut:
             guard configuration.isEnabled else { return .inactive("Remapping is disabled.") }
             guard shortcutPermission else { return .inactive("Allow shortcut output in Privacy & Security.") }
@@ -257,7 +363,7 @@ final class ApplicationState {
             if let conflict = conflicts[action.candidateSourceUsage] {
                 return .conflict("Another mapping sends this key to 0x\(String(conflict.rawValue, radix: 16))")
             }
-            return error == nil ? .active : .inactive(error?.localizedDescription ?? "Unavailable")
+            return error == nil ? .active : .inactive(hidState.detail)
         }
     }
 
