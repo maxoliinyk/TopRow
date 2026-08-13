@@ -60,15 +60,19 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Enable shortcut output")
                             .font(.callout.weight(.semibold))
-                        Text("Core Graphics calls this Post Event access. macOS lists the switch under Privacy & Security › Accessibility.")
+                        Text("Core Graphics calls this Post Event access. macOS lists the switch under Privacy & Security › \(PostEventAccess.settingsCategoryName).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        Text("1. Open Accessibility settings.  2. Turn on TopRow.  3. Return here and check again.")
+                        Text("1. Open \(PostEventAccess.settingsCategoryName).  2. Turn on TopRow.  3. Return here and check again.")
                             .font(.caption)
 
+                        Text("If TopRow is already enabled, quit and relaunch this exact build, then switch it off and on once. macOS ties the grant to the signed app identity.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
                         HStack(spacing: 8) {
-                            Button("Open Accessibility Settings…") {
+                            Button("Open Permission Settings…") {
                                 appState.requestPostEventAccess()
                             }
                             .buttonStyle(.borderedProminent)
@@ -184,7 +188,7 @@ private struct PermissionStatusRow: View {
         if appState.isPostEventAccessGranted {
             return "TopRow can emit configured shortcuts through CGEvent."
         }
-        return "Turn on TopRow in System Settings › Privacy & Security › Accessibility."
+        return "Turn on TopRow in System Settings › Privacy & Security › \(PostEventAccess.settingsCategoryName)."
     }
 
     private var iconName: String {

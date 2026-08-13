@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import ApplicationServices
 import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
@@ -98,7 +99,26 @@ nonisolated struct ShortcutEmitter: Sendable {
 }
 
 nonisolated struct PostEventAccess: Sendable {
-    var isGranted: Bool { CGPreflightPostEventAccess() }
+    /// The label Apple uses for the Accessibility permission category changed
+    /// in macOS 27. The preference pane identifier is still
+    /// `Privacy_Accessibility`, so only the user-facing copy needs to vary.
+    static var settingsCategoryName: String {
+        if #available(macOS 27, *) {
+            return "Device Control and Data Access"
+        }
+        return "Accessibility"
+    }
+
+    /// `CGPreflightPostEventAccess` is the narrow, purpose-specific check.
+    /// macOS 27 presents the broader Accessibility grant as “Device Control
+    /// and Data Access”; that grant also authorizes event posting. Some
+    /// 26.x/27.x builds do not reflect that grant through the PostEvent
+    /// preflight API, so use the trusted Accessibility result as a
+    /// compatibility fallback rather than reporting a visible, enabled
+    /// system toggle as denied.
+    var isGranted: Bool {
+        CGPreflightPostEventAccess() || AXIsProcessTrusted()
+    }
 
     func request() -> Bool {
         CGRequestPostEventAccess()

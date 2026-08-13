@@ -91,7 +91,7 @@ final class ApplicationState {
         if isReconciling { return "Checking the built-in keyboard service…" }
         if !configuration.isEnabled { return "Turn on Enable Remapping in Settings to apply your saved mappings." }
         if requiresPostEventAccess && !isPostEventAccessGranted {
-            return "Allow TopRow under Privacy & Security › Accessibility to enable shortcut output."
+            return "Allow TopRow under Privacy & Security › \(PostEventAccess.settingsCategoryName) to enable shortcut output."
         }
         if let lastError { return lastError }
         if let launchAtLoginError { return launchAtLoginError }
@@ -186,8 +186,8 @@ final class ApplicationState {
     }
 
     /// Core Graphics calls this narrow privilege Post Event access. macOS
-    /// exposes the switch under Privacy & Security > Accessibility, so open
-    /// that exact pane instead of the generic privacy landing page.
+    /// exposes the switch under its Accessibility privacy pane, so open that
+    /// exact pane instead of the generic privacy landing page.
     func openPostEventSettings() {
         let accessibilityURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
         let fallbackURL = URL(string: "x-apple.systempreferences:com.apple.preference.security")
@@ -373,7 +373,9 @@ final class ApplicationState {
             return error == nil ? .active : .inactive(hidState.detail)
         case .shortcut:
             guard configuration.isEnabled else { return .inactive("Remapping is disabled.") }
-            guard shortcutPermission else { return .inactive("Allow TopRow in Privacy & Security › Accessibility.") }
+            guard shortcutPermission else {
+                return .inactive("Allow TopRow in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
+            }
             guard proxyPlan.assignments[action] != nil else {
                 return .inactive(proxyPlan.unavailable[action] ?? "No proxy function key is available.")
             }

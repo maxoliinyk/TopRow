@@ -449,13 +449,13 @@ private struct MappingEditor: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Shortcut output needs permission")
                                 .font(.caption.weight(.semibold))
-                            Text("Allow TopRow in Privacy & Security › Accessibility.")
+                            Text("Allow TopRow in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
                         }
                         Spacer(minLength: 6)
-                        Button("Open Accessibility Settings…") {
+                        Button("Open Permission Settings…") {
                             appState.requestPostEventAccess()
                         }
                         .buttonStyle(.borderedProminent)
