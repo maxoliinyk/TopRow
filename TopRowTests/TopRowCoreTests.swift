@@ -98,6 +98,9 @@ struct TopRowCoreTests {
         #expect(configuration.mappings.count == FunctionRowAction.allCases.count)
         #expect(configuration.mappings.map(\.action) == FunctionRowAction.allCases)
         #expect(configuration.mappings.allSatisfy { $0.destination == MappingDestination.systemDefault })
+        #expect(!configuration.hideDockIcon)
+        #expect(!configuration.hideMenuBarIcon)
+        #expect(!configuration.isSilentMode)
     }
 
     @Test
@@ -105,6 +108,8 @@ struct TopRowCoreTests {
         var configuration = AppConfiguration.defaults
         configuration.isEnabled = true
         configuration.launchAtLogin = true
+        configuration.hideDockIcon = true
+        configuration.hideMenuBarIcon = true
         configuration.mappings[4].destination = .functionKey(.f13)
         configuration.mappings[3].destination = .shortcut(
             StoredShortcut(carbonKeyCode: 49, carbonModifiers: Int(cmdKey))
@@ -114,6 +119,22 @@ struct TopRowCoreTests {
         let decoded = try JSONDecoder().decode(AppConfiguration.self, from: encoded)
 
         #expect(decoded == configuration)
+        #expect(decoded.isSilentMode)
+    }
+
+    @Test
+    func configurationSupportsIndependentVisibilitySettings() {
+        var configuration = AppConfiguration.defaults
+        configuration.hideDockIcon = true
+
+        #expect(!configuration.hideMenuBarIcon)
+        #expect(!configuration.isSilentMode)
+
+        configuration.hideMenuBarIcon = true
+        #expect(configuration.isSilentMode)
+
+        configuration.hideDockIcon = false
+        #expect(!configuration.isSilentMode)
     }
 
     @Test

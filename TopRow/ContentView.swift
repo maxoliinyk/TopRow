@@ -12,6 +12,8 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(ApplicationState.self) private var appState
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 14) {
@@ -30,7 +32,25 @@ struct ContentView: View {
         .padding(.vertical, 20)
         .frame(width: 1180, height: 720)
         .background(Color(nsColor: .windowBackgroundColor))
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Settings…", systemImage: "gearshape") {
+                    openSettings()
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
+        }
         .task {
+            MenuBarController.shared.registerWindowActions(
+                openMainWindow: {
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
+                },
+                openSettings: {
+                    openSettings()
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            )
             await appState.start()
         }
     }

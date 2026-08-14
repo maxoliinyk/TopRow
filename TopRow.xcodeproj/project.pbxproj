@@ -159,7 +159,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				D30000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
-				D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */,
+				D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C40D9175302E34BB00C8E74B /* Products */;
@@ -457,7 +457,7 @@
 				minimumVersion = 3.0.1;
 			};
 		};
-		D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */ = {
+		D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/sindresorhus/LaunchAtLogin-Modern.git";
 			requirement = {
@@ -475,7 +475,7 @@
 		};
 		D30000000000000000000005 /* LaunchAtLogin */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin" */;
+			package = D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
 			productName = LaunchAtLogin;
 		};
 /* End XCSwiftPackageProductDependency section */

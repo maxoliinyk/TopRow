@@ -166,6 +166,38 @@ final class ApplicationState {
         scheduleReconcile()
     }
 
+    func setHideDockIcon(_ hidden: Bool) {
+        configuration.hideDockIcon = hidden
+        store.save(configuration: configuration)
+        applyApplicationPresentation()
+    }
+
+    func setHideMenuBarIcon(_ hidden: Bool) {
+        guard configuration.hideMenuBarIcon != hidden else { return }
+        configuration.hideMenuBarIcon = hidden
+        store.save(configuration: configuration)
+        MenuBarController.shared.updateVisibility(isHidden: hidden)
+    }
+
+    func setSilentMode(_ enabled: Bool) {
+        configuration.hideDockIcon = enabled
+        configuration.hideMenuBarIcon = enabled
+        store.save(configuration: configuration)
+        applyApplicationPresentation()
+        MenuBarController.shared.updateVisibility(isHidden: enabled)
+    }
+
+    func applyApplicationPresentation() {
+        // Accessory apps stay launchable and can show windows, but do not add
+        // an application icon to the Dock or own the main menu bar.
+        let desiredPolicy: NSApplication.ActivationPolicy = configuration.hideDockIcon
+            ? .accessory
+            : .regular
+
+        guard NSApp.activationPolicy() != desiredPolicy else { return }
+        _ = NSApp.setActivationPolicy(desiredPolicy)
+    }
+
     func setLaunchAtLogin(_ enabled: Bool) {
         // LaunchAtLogin performs the SMAppService registration and retries a
         // stale enabled registration before registering again.

@@ -13,6 +13,12 @@ final class TopRowAppDelegate: NSObject, NSApplicationDelegate {
     static var applicationState: ApplicationState?
     private var terminationStarted = false
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let applicationState = Self.applicationState else { return }
+        MenuBarController.shared.start(applicationState: applicationState)
+        applicationState.applyApplicationPresentation()
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard !terminationStarted else { return .terminateLater }
         terminationStarted = true
@@ -50,39 +56,5 @@ struct TopRowApp: App {
                 .environment(applicationState)
         }
 
-        MenuBarExtra("TopRow", systemImage: "keyboard") {
-            MenuBarView(applicationState: applicationState)
-        }
-        .menuBarExtraStyle(.menu)
-    }
-}
-
-private struct MenuBarView: View {
-    let applicationState: ApplicationState
-    @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
-
-    var body: some View {
-        Button("Open Function Row") {
-            openWindow(id: "main")
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        Button("Settings…") {
-            openSettings()
-            NSApp.activate(ignoringOtherApps: true)
-        }
-
-        Divider()
-
-        Label(applicationState.overallStatus, systemImage: "circle.fill")
-            .foregroundStyle(.secondary)
-
-        Divider()
-
-        Button("Quit") {
-            NSApp.terminate(nil)
-        }
-        .keyboardShortcut("q")
     }
 }

@@ -391,12 +391,20 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
     var schemaVersion: Int
     var isEnabled: Bool
     var launchAtLogin: Bool
+    var hideDockIcon: Bool
+    var hideMenuBarIcon: Bool
     var mappings: [FunctionRowMapping]
+
+    var isSilentMode: Bool {
+        hideDockIcon && hideMenuBarIcon
+    }
 
     init(
         schemaVersion: Int = Self.currentSchemaVersion,
         isEnabled: Bool = true,
         launchAtLogin: Bool = false,
+        hideDockIcon: Bool = false,
+        hideMenuBarIcon: Bool = false,
         mappings: [FunctionRowMapping] = FunctionRowAction.allCases.map {
             FunctionRowMapping(action: $0, destination: .systemDefault)
         }
@@ -404,6 +412,8 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
         self.schemaVersion = schemaVersion
         self.isEnabled = isEnabled
         self.launchAtLogin = launchAtLogin
+        self.hideDockIcon = hideDockIcon
+        self.hideMenuBarIcon = hideMenuBarIcon
         self.mappings = mappings
         normalize()
     }
@@ -449,6 +459,8 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
         case schemaVersion
         case isEnabled
         case launchAtLogin
+        case hideDockIcon
+        case hideMenuBarIcon
         case mappings
     }
 
@@ -478,12 +490,16 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
 
         let enabled = (try? container.decode(Bool.self, forKey: .isEnabled)) ?? true
         let launchAtLogin = (try? container.decode(Bool.self, forKey: .launchAtLogin)) ?? false
+        let hideDockIcon = (try? container.decode(Bool.self, forKey: .hideDockIcon)) ?? false
+        let hideMenuBarIcon = (try? container.decode(Bool.self, forKey: .hideMenuBarIcon)) ?? false
         let storedMappings = (try? container.decode([StoredMapping].self, forKey: .mappings)) ?? []
 
         self.init(
             schemaVersion: Self.currentSchemaVersion,
             isEnabled: enabled,
             launchAtLogin: launchAtLogin,
+            hideDockIcon: hideDockIcon,
+            hideMenuBarIcon: hideMenuBarIcon,
             mappings: storedMappings.compactMap { mapping in
                 guard let rawAction = mapping.action,
                       let action = FunctionRowAction(rawValue: rawAction) else { return nil }

@@ -73,9 +73,14 @@ nonisolated struct ShortcutEmitter: Sendable {
     private let encoder = ShortcutEventEncoder()
 
     func emit(_ shortcut: StoredShortcut) -> Bool {
+        // Give the events the same HID-system source identity as physical
+        // keyboard input. Some global shortcut managers (including Raycast)
+        // ignore events created with a nil source even though AppKit accepts
+        // them locally.
+        let source = CGEventSource(stateID: .hidSystemState)
         for event in encoder.encode(shortcut) {
             guard let cgEvent = CGEvent(
-                keyboardEventSource: nil,
+                keyboardEventSource: source,
                 virtualKey: CGKeyCode(event.keyCode),
                 keyDown: event.isKeyDown
             ) else {

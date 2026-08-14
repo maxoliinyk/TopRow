@@ -54,6 +54,60 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle(
+                    isOn: Binding(
+                        get: { appState.configuration.hideDockIcon },
+                        set: { appState.setHideDockIcon($0) }
+                    )
+                ) {
+                    SettingsToggleLabel(
+                        title: "Hide Dock Icon",
+                        detail: "Keep TopRow out of the Dock. It can still be opened from the menu bar unless Silent Mode is enabled."
+                    )
+                }
+                .toggleStyle(.switch)
+
+                Toggle(
+                    isOn: Binding(
+                        get: { appState.configuration.hideMenuBarIcon },
+                        set: { appState.setHideMenuBarIcon($0) }
+                    )
+                ) {
+                    SettingsToggleLabel(
+                        title: "Hide Menu Bar Icon",
+                        detail: "Remove the keyboard icon from the menu bar. Use the Dock or Spotlight to open TopRow unless Silent Mode is enabled."
+                    )
+                }
+                .toggleStyle(.switch)
+
+                Toggle(
+                    isOn: Binding(
+                        get: { appState.configuration.isSilentMode },
+                        set: { appState.setSilentMode($0) }
+                    )
+                ) {
+                    SettingsToggleLabel(
+                        title: "Silent Mode",
+                        detail: "Hide both icons. Open TopRow from Spotlight or another app launcher."
+                    )
+                }
+                .toggleStyle(.switch)
+
+                if appState.configuration.isSilentMode {
+                    InlineSettingsMessage(
+                        title: "TopRow is running silently",
+                        detail: "Use Spotlight or another app launcher to bring TopRow back when you need it.",
+                        systemImage: "moon.fill",
+                        color: .secondary
+                    )
+                }
+            } header: {
+                Text("App Visibility")
+            } footer: {
+                Text("These settings affect only the app's Dock and menu bar presence. They do not change remapping or Launch at Login.")
+            }
+
+            Section {
                 PermissionStatusRow(appState: appState)
 
                 if appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {

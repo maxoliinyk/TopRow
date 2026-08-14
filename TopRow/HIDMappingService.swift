@@ -246,6 +246,7 @@ actor HIDMappingService {
         let client: IOHIDServiceClient
         let descriptor: HIDServiceDescriptor
         let mappingRead: MappingRead
+        let retainedClient: Unmanaged<IOHIDServiceClient>
     }
 
     private enum MappingRead {
@@ -282,6 +283,11 @@ actor HIDMappingService {
         for index in 0..<CFArrayGetCount(services) {
             guard let raw = CFArrayGetValueAtIndex(services, index) else { continue }
             let service = unsafeBitCast(raw, to: IOHIDServiceClient.self)
+            // IOHIDEventSystemClientCopyServices returns borrowed service
+            // references. Keep each one alive independently of the copied
+            // CFArray; the array can release its entries while a transaction
+            // is still reading or writing a service property.
+            let retainedClient = Unmanaged.passUnretained(service).retain()
 
             let product = Self.stringProperty(service, key: "Product") ?? "Unknown keyboard"
             let transport = Self.stringProperty(service, key: "Transport") ?? ""
@@ -291,7 +297,10 @@ actor HIDMappingService {
                 product: product,
                 transport: transport,
                 isBuiltIn: builtIn
-            ) else { continue }
+            ) else {
+                retainedClient.release()
+                continue
+            }
 
             let registryID = (IOHIDServiceClientGetRegistryID(service) as? NSNumber)?.uint64Value ?? 0
             let fingerprint = [
@@ -311,15 +320,18 @@ actor HIDMappingService {
                     product: product,
                     isBuiltIn: builtIn || product.localizedCaseInsensitiveContains("apple internal keyboard")
                 ),
-                mappingRead: Self.readMappings(from: service)
+                mappingRead: Self.readMappings(from: service),
+                retainedClient: retainedClient
             ))
         }
 
         // Keep both the event client and copied service array alive through the
-        // entire transaction. Service pointers are borrowed from that array.
+        // entire transaction. Release the explicit service retains only after
+        // the caller has completed every read/write and verification.
         return withExtendedLifetime(client) {
             withExtendedLifetime(services) {
-                body(handles)
+                defer { handles.forEach { $0.retainedClient.release() } }
+                return body(handles)
             }
         }
     }
