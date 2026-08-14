@@ -1,6 +1,8 @@
 # TopRow
 
-Remap the actions on your Mac’s Top Row without changing the F1–F12 keys underneath them.
+TopRow is a tiny native macOS utility for remapping function keys on an Apple Silicon MacBook's top row.
+
+I don't know anyone who uses Mission Control, Spotlight, or Dictation from those keys. I don't use Apple's Dictation either — I use VoiceInk, so I wanted the Dictation key to activate it. I mapped Spotlight to Raycast too (idk why, I still use `⌘ + Space` lol).
 
 For example:
 
@@ -11,48 +13,32 @@ normal Dictation key → F13
 Fn + Dictation key   → F5
 ```
 
-TopRow is a small native macOS utility for modern Apple Silicon MacBook keyboards. It supports direct F13 and F16–F24 destinations; F14 and F15 stay reserved for macOS brightness controls. Ordinary keyboard shortcut destinations use macOS Post Event access only when configured.
+TopRow can send a top-row action to an unused function key such as `F13` or `F16–F24`, or to a shortcut such as `⌘ + Space`. The regular F1–F12 layer stays available, and external keyboards are left alone.
 
-The main window is a focused function-row editor; remapping, Launch at Login, and app visibility are managed from the app's native Settings window. You can hide the Dock icon, hide the menu bar icon, or enable Silent Mode to hide both and reopen TopRow only through Spotlight or another app launcher. Enable Remapping is an immediate switch, and the Keyboard Service section reports whether the built-in HID service was found, whether macOS rejected a write, or whether a saved mapping is conflicted. Shortcut destinations explain and request the narrow Core Graphics Post Event privilege in place. macOS exposes that switch under Privacy & Security > Accessibility (named Device Control and Data Access on macOS 27). TopRow uses the accessibility trust check only to recognize that grant; it does not inspect or control other apps, install an event tap, or request Input Monitoring.
+## How it works
 
-Shortcut destinations use a key-only recorder: choose Command, Option, Control, and/or Shift with the modifier buttons, then click the key field and press only the base key. This lets you configure destinations such as `⌘Space` without opening Spotlight while recording. TopRow uses the `KeyboardShortcuts` package's shortcut representation and validation, while keeping the app's own storage and runtime as the source of truth.
+Built with Swift 6 and SwiftUI.
 
-The app intentionally does not provide general keyboard remapping, modifier remapping, macros, per-app profiles, external keyboard profiles, telemetry, or cloud sync.
+- Apple IOHID APIs update `UserKeyMapping` on the built-in keyboard.
+- Existing mappings are preserved; external keyboards are ignored.
+- Core Graphics HID-system events emit configured shortcuts.
+- `KeyboardShortcuts` handles shortcut capture and validation.
+- No driver, helper, event tap, Input Monitoring, telemetry, or cloud sync.
 
-HID source usages are hardware-sensitive. The app filters for the built-in Apple keyboard and preserves unrelated `UserKeyMapping` entries, but the Phase 0 capture and cleanup proof must still be run on the specific Apple Silicon MacBook model before enabling a release build. Direct HID property writes use the personal-build app directly; no root helper, driver, event tap, or Input Monitoring permission is used.
+Direct destinations use F13, F16–F24; F14 and F15 remain reserved for brightness. Shortcut destinations require macOS Accessibility/Post Event access.
 
-## Phase 0 release gate
-
-Build the read-only probe and snapshot before any manual write experiment:
-
-```sh
-xcrun swiftc -swift-version 6 \
-  Tools/Phase0Probe/main.swift \
-  -o /tmp/toprow-phase0-probe \
-  -framework Carbon \
-  -framework IOKit
-/tmp/toprow-phase0-probe snapshot
-/tmp/toprow-phase0-probe capture 30
-```
-
-Do not ship until the supported MacBook hardware proves all of the following:
-
-- normal and Fn-layer usages are distinct for every supported action;
-- Dictation can map to F13 without opening Dictation, while Fn + Dictation remains F5;
-- a Spotlight proxy emits exactly one configured shortcut and does not recurse while held;
-- F13–F24 listener support is confirmed, including any raw F21–F24 key codes;
-- unrelated mappings are restored byte-for-byte or semantically identically after the experiment;
-- external keyboards remain untouched and the intended signed app succeeds.
-
-The probe is intentionally read-only. If its capture file is empty, treat that as an environment/permission result—not as evidence that a usage is absent—and perform the capture on the supported hardware with the intended app signing.
-
-## Development
+## Requirements
 
 - macOS 26+
-- Apple Silicon
-- Swift 6 / SwiftUI
-- Xcode 27+
+- Apple Silicon MacBook with keyboard (preferably)
+- Xcode
 
-Open `TopRow.xcodeproj` and configure a stable development signature before testing shortcut destinations. Copy `Config/LocalSigning.xcconfig.example` to `Config/LocalSigning.xcconfig`, replace `YOUR_TEAM_ID` with your Apple Developer Team ID, then build again. This local file is ignored and never commits a developer-specific team. An ad-hoc build will ask for Post Event permission again after every rebuild because macOS binds that grant to the signed app identity; direct HID mappings do not need it. When switching from an old ad-hoc build, remove its TopRow entry once and enable the newly signed build.
+## Build
 
-The project uses Apple HID APIs, [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts), and [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin-Modern). LaunchAtLogin owns the `SMAppService` registration and keeps the Settings toggle synchronized with macOS. HID source usages are hardware-sensitive; validate them on the supported built-in keyboard before enabling remapping.
+Open `TopRow.xcodeproj` in Xcode. For shortcut output, copy `Config/LocalSigning.xcconfig.example` to `Config/LocalSigning.xcconfig`, add your Team ID, and build with a stable development signature.
+
+## WIP...more later...
+
+## License
+
+MIT
