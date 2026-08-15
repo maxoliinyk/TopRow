@@ -44,11 +44,11 @@ struct TopRowApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Function Row", id: "main") {
+        WindowGroup("Top Row", id: "main") {
             ContentView()
                 .environment(applicationState)
         }
-        .defaultSize(width: 1180, height: 720)
+        .defaultSize(width: 1180, height: 760)
         .windowResizability(.contentSize)
 
         Settings {

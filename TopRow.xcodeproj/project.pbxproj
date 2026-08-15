@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		D30000000000000000000003 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = D30000000000000000000002 /* KeyboardShortcuts */; };
 		D30000000000000000000004 /* LaunchAtLogin in Frameworks */ = {isa = PBXBuildFile; productRef = D30000000000000000000005 /* LaunchAtLogin */; };
+		D30000000000000000000026 /* Defaults in Frameworks */ = {isa = PBXBuildFile; productRef = D30000000000000000000025 /* Defaults */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,7 @@
 			files = (
 				D30000000000000000000003 /* KeyboardShortcuts in Frameworks */,
 				D30000000000000000000004 /* LaunchAtLogin in Frameworks */,
+				D30000000000000000000026 /* Defaults in Frameworks */,
 			);
 		};
 		D30000000000000000000012 /* Frameworks */ = {
@@ -103,6 +105,7 @@
 			packageProductDependencies = (
 				D30000000000000000000002 /* KeyboardShortcuts */,
 				D30000000000000000000005 /* LaunchAtLogin */,
+				D30000000000000000000025 /* Defaults */,
 			);
 			productName = TopRow;
 			productReference = C40D9174302E34BB00C8E74B /* TopRow.app */;
@@ -160,6 +163,7 @@
 			packageReferences = (
 				D30000000000000000000001 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
 				D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */,
+				D30000000000000000000024 /* XCRemoteSwiftPackageReference "Defaults" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C40D9175302E34BB00C8E74B /* Products */;
@@ -336,6 +340,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Top Row";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -365,6 +370,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Top Row";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -465,6 +471,14 @@
 				minimumVersion = 1.1.0;
 			};
 		};
+		D30000000000000000000024 /* XCRemoteSwiftPackageReference "Defaults" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sindresorhus/Defaults.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.2.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -477,6 +491,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D30000000000000000000006 /* XCRemoteSwiftPackageReference "LaunchAtLogin-Modern" */;
 			productName = LaunchAtLogin;
+		};
+		D30000000000000000000025 /* Defaults */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D30000000000000000000024 /* XCRemoteSwiftPackageReference "Defaults" */;
+			productName = Defaults;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

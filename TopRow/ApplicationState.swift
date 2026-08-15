@@ -71,9 +71,24 @@ final class ApplicationState {
         }
     }
 
+    var configuredMappingCount: Int {
+        configuration.mappings.filter { $0.destination != .systemDefault }.count
+    }
+
+    var attentionMappingCount: Int {
+        guard configuration.isEnabled else { return 0 }
+        return statuses.values.filter {
+            switch $0 {
+            case .inactive, .conflict: true
+            case .defaulted, .active: false
+            }
+        }.count
+    }
+
     var overallStatus: String {
         if isReconciling { return "Updating keyboard…" }
         if !configuration.isEnabled { return "Remapping disabled" }
+        if !hasConfiguredMappings { return "Ready to customize" }
         if requiresPostEventAccess && !isPostEventAccessGranted {
             return "Shortcut output permission needed"
         }
@@ -96,8 +111,9 @@ final class ApplicationState {
     var overallStatusDetail: String? {
         if isReconciling { return "Checking the built-in keyboard service…" }
         if !configuration.isEnabled { return "Turn on Enable Remapping in Settings to apply your saved mappings." }
+        if !hasConfiguredMappings { return "Select a key above to choose a custom destination." }
         if requiresPostEventAccess && !isPostEventAccessGranted {
-            return "Allow TopRow under Privacy & Security › \(PostEventAccess.settingsCategoryName) to enable shortcut output."
+            return "Allow Top Row under Privacy & Security › \(PostEventAccess.settingsCategoryName) to enable shortcut output."
         }
         if let lastError { return lastError }
         if let launchAtLoginError { return launchAtLoginError }
@@ -208,7 +224,7 @@ final class ApplicationState {
 
         guard actualLaunchAtLogin == enabled else {
             launchAtLoginError = enabled
-                ? "macOS did not enable Launch at Login. Open System Settings › General › Login Items and allow TopRow."
+                ? "macOS did not enable Launch at Login. Open System Settings › General › Login Items and allow Top Row."
                 : "macOS did not disable Launch at Login. Try again from System Settings › General › Login Items."
             return
         }
@@ -422,7 +438,7 @@ final class ApplicationState {
         case .shortcut:
             guard configuration.isEnabled else { return .inactive("Remapping is disabled.") }
             guard shortcutPermission else {
-                return .inactive("Allow TopRow in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
+                return .inactive("Allow Top Row in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
             }
             guard proxyPlan.assignments[action] != nil else {
                 return .inactive(proxyPlan.unavailable[action] ?? "No proxy function key is available.")

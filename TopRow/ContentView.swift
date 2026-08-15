@@ -16,21 +16,26 @@ struct ContentView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
             HeaderView(
                 status: appState.overallStatus,
                 detail: appState.overallStatusDetail,
                 systemImage: headerSystemImage,
-                tone: headerTone
+                tone: headerTone,
+                isEnabled: Binding(
+                    get: { appState.configuration.isEnabled },
+                    set: { appState.setEnabled($0) }
+                ),
+                configuredMappingCount: appState.configuredMappingCount,
+                attentionMappingCount: appState.attentionMappingCount
             )
 
             FunctionRowCard(appState: appState)
-
             MappingEditor(appState: appState, action: appState.selectedAction)
         }
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 22)
         .padding(.vertical, 20)
-        .frame(width: 1180, height: 720)
+        .frame(width: 1180, height: 760)
         .background(Color(nsColor: .windowBackgroundColor))
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -62,6 +67,7 @@ struct ContentView: View {
         if appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {
             return "lock.shield"
         }
+        if appState.attentionMappingCount > 0 { return "exclamationmark.triangle.fill" }
         return appState.hidServiceState.systemImage
     }
 
@@ -73,6 +79,7 @@ struct ContentView: View {
         if appState.lastError != nil || appState.launchAtLoginError != nil || appState.requiresPostEventAccess && !appState.isPostEventAccessGranted {
             return .warning
         }
+        if appState.attentionMappingCount > 0 { return .warning }
         if appState.hidServiceState.isReady || !appState.hasConfiguredMappings {
             return .success
         }
@@ -99,45 +106,81 @@ private struct HeaderView: View {
     let detail: String?
     let systemImage: String
     let tone: StatusTone
+    @Binding var isEnabled: Bool
+    let configuredMappingCount: Int
+    let attentionMappingCount: Int
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
             Image(systemName: "keyboard")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(.tint)
-                .frame(width: 38, height: 38)
-                .background(Color.accentColor.opacity(0.12), in: Circle())
+                .font(.system(size: 19, weight: .semibold))
+                .foregroundStyle(tone.color)
+                .frame(width: 42, height: 42)
+                .background(tone.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-            Text("Function Row")
-                .font(.system(.title2, design: .rounded).weight(.semibold))
+                Text("Top Row")
+                    .font(.system(.title2, design: .rounded).weight(.semibold))
 
-            Text("Choose what the twelve Top Row keys do. Fn + F1–F12 stays unchanged.")
+                StatusBadge(status: status, systemImage: systemImage, tone: tone)
+            }
+
+            Text("Customize the twelve top-row keys. Holding Fn still keeps the standard F1–F12 layer.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .frame(maxWidth: 700)
+                .lineLimit(2)
+                .frame(maxWidth: 680)
 
-            VStack(spacing: 4) {
-                Label(status, systemImage: systemImage)
-                    .font(.caption.weight(.semibold))
+            if let detail {
+                Text(detail)
+                    .font(.caption)
                     .foregroundStyle(tone.color)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 5)
-                    .background(tone.color.opacity(0.12), in: Capsule())
-
-                if let detail {
-                    Text(detail)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .frame(maxWidth: 780)
-                }
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
             }
+
+            HStack(spacing: 16) {
+                HStack(spacing: 10) {
+                    Label("\(configuredMappingCount) customized", systemImage: "slider.horizontal.3")
+                    if attentionMappingCount > 0 {
+                        Label("\(attentionMappingCount) need attention", systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.orange)
+                    }
+                }
+
+                Divider()
+                    .frame(height: 16)
+
+                Toggle(isOn: $isEnabled) {
+                    Text(isEnabled ? "Remapping on" : "Remapping off")
+                        .font(.caption.weight(.semibold))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
+        .padding(20)
+        .topRowCard()
+    }
+}
+
+private struct StatusBadge: View {
+    let status: String
+    let systemImage: String
+    let tone: StatusTone
+
+    var body: some View {
+        Label(status, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tone.color)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 4)
+            .background(tone.color.opacity(0.12), in: Capsule())
     }
 }
 
@@ -145,19 +188,19 @@ private struct FunctionRowCard: View {
     @Bindable var appState: ApplicationState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Top Row")
-                        .font(.headline)
-                    Text("Select a key to edit its destination")
+                    Text("Choose a key")
+                        .font(.headline.weight(.semibold))
+                    Text("Select a key to edit what it sends")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 16)
 
-                Text("F1–F12")
+                Label("F1–F12", systemImage: "keyboard")
                     .font(.caption.weight(.medium).monospacedDigit())
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 9)
@@ -179,16 +222,33 @@ private struct FunctionRowCard: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 2)
+
+            HStack(spacing: 12) {
+                StatusLegend(color: .secondary, title: "Apple default")
+                StatusLegend(color: .green, title: "Active")
+                if appState.attentionMappingCount > 0 {
+                    StatusLegend(color: .orange, title: "Needs attention")
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
         }
-        .padding(15)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        .padding(18)
+        .topRowCard()
+    }
+}
+
+private struct StatusLegend: View {
+    let color: Color
+    let title: String
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+            Text(title)
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -214,17 +274,17 @@ private struct FunctionKeyCap: View {
 
                 Text(destination.summary)
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(destination == .systemDefault ? .secondary : Color.accentColor)
+                    .foregroundStyle(statusColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 3)
                     .background(
-                        (destination == .systemDefault ? Color.secondary : Color.accentColor).opacity(0.10),
+                        statusColor.opacity(0.10),
                         in: Capsule()
                     )
             }
-            .frame(width: 73, height: 82)
+            .frame(maxWidth: .infinity, minHeight: 76)
             .contentShape(.rect(cornerRadius: 14))
         }
         .buttonStyle(KeyCapButtonStyle(isSelected: isSelected, isHovered: isHovered))
@@ -232,6 +292,14 @@ private struct FunctionKeyCap: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityIdentifier("function-key-\(action.rawValue)")
         .help("\(action.title), \(action.physicalKey.label)")
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .defaulted: .secondary
+        case .active: .green
+        case .inactive, .conflict: .orange
+        }
     }
 
     private var accessibilityLabel: String {
@@ -281,41 +349,56 @@ private struct MappingEditor: View {
 
         var title: String {
             switch self {
-            case .systemDefault: "Default"
-            case .functionKey: "Function Key"
-            case .shortcut: "Keyboard Shortcut"
+            case .systemDefault: "Apple default"
+            case .functionKey: "Function key"
+            case .shortcut: "Keyboard shortcut"
             }
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                PhysicalKeyBadge(key: action.physicalKey)
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(action.title)
                         .font(.headline.weight(.semibold))
-                    Text("Physical \(action.physicalKey.label)")
-                        .font(.caption2)
+                    Text("Customize what \(action.physicalKey.label) sends")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 16)
 
-                Button("Reset Selected") {
-                    appState.resetSelected()
+                if destination != .systemDefault {
+                    Button("Reset key") {
+                        appState.resetSelected()
+                    }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
 
-                Button("Reset All", role: .destructive) {
-                    showingResetAllConfirmation = true
+                Menu {
+                    Button("Reset all keys…", role: .destructive) {
+                        showingResetAllConfirmation = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.title3)
                 }
-                .buttonStyle(.borderless)
+                .menuStyle(.borderlessButton)
+                .accessibilityLabel("Reset options")
+                .help("More reset options")
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Destination")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Destination")
+                        .font(.headline.weight(.semibold))
+                    Text("Choose what happens when you press this key without Fn.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Picker("Destination", selection: modeBinding) {
                     ForEach(availableModes, id: \.self) { mode in
@@ -333,13 +416,8 @@ private struct MappingEditor: View {
                 StatusBanner(status: appState.status(for: action))
             }
         }
-        .padding(18)
-        .frame(maxWidth: 780)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        }
+        .padding(20)
+        .topRowCard(cornerRadius: 20)
         .animation(.easeInOut(duration: 0.18), value: appState.configuration.destination(for: action).summary)
         .confirmationDialog(
             "Reset every function-row key?",
@@ -352,6 +430,26 @@ private struct MappingEditor: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("All twelve keys will return to Apple's original actions.")
+        }
+    }
+
+    private var destination: MappingDestination {
+        appState.configuration.destination(for: action)
+    }
+
+    private struct PhysicalKeyBadge: View {
+        let key: FunctionKey
+
+        var body: some View {
+            Text(key.label)
+                .font(.system(.headline, design: .rounded).weight(.bold).monospacedDigit())
+                .frame(width: 52, height: 42)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+                }
+                .accessibilityLabel("Physical \(key.label) key")
         }
     }
 
@@ -388,14 +486,22 @@ private struct MappingEditor: View {
     private var destinationEditor: some View {
         switch appState.configuration.destination(for: action) {
         case .systemDefault:
-            Label("Apple's original action", systemImage: "arrow.uturn.backward.circle")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Apple's original action", systemImage: "arrow.uturn.backward.circle")
+                    .foregroundStyle(.secondary)
+                Text("This key keeps its built-in macOS behavior until you choose a custom destination.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
 
         case .functionKey:
             HStack(spacing: 12) {
                 Label("Send as", systemImage: "function")
                     .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
                 Picker("Function Key", selection: functionKeyBinding) {
                     ForEach(availableFunctionKeys) { functionKey in
                         Text(functionKey.label).tag(functionKey)
@@ -404,8 +510,9 @@ private struct MappingEditor: View {
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .controlSize(.regular)
-                Spacer(minLength: 0)
             }
+            .padding(12)
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
 
             Text("F14 and F15 are reserved by macOS brightness controls.")
                 .font(.caption2)
@@ -413,9 +520,17 @@ private struct MappingEditor: View {
 
         case .shortcut:
             VStack(alignment: .leading, spacing: 9) {
-                Text("Modifiers")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack {
+                    Text("Shortcut")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(currentShortcut.displayName)
+                        .font(.body.weight(.semibold).monospaced())
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 5)
+                        .background(Color.accentColor.opacity(0.10), in: Capsule())
+                }
 
                 HStack(spacing: 6) {
                     ForEach(ShortcutModifier.allCases) { modifier in
@@ -456,7 +571,7 @@ private struct MappingEditor: View {
                 }
 
                 if currentShortcut.shortcut.isTakenBySystem {
-                    Label("This matches a macOS shortcut. TopRow will still emit it when the function-row key is pressed.", systemImage: "info.circle")
+                    Label("This matches a macOS shortcut. Top Row will still emit it when the function-row key is pressed.", systemImage: "info.circle")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -469,10 +584,10 @@ private struct MappingEditor: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Shortcut output needs permission")
                                 .font(.caption.weight(.semibold))
-                            Text("Allow TopRow in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
+                            Text("Allow Top Row in Privacy & Security › \(PostEventAccess.settingsCategoryName).")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                                .lineLimit(2)
                         }
                         Spacer(minLength: 6)
                         Button("Open Permission Settings…") {
@@ -569,7 +684,7 @@ private struct MappingEditor: View {
         }
 
         if let functionKey = stored.functionKey, !functionKey.isSelectableDestination {
-            shortcutValidationMessage = "\(functionKey.label) is reserved by macOS and cannot be used by TopRow."
+            shortcutValidationMessage = "\(functionKey.label) is reserved by macOS and cannot be used by Top Row."
             return
         }
 
@@ -608,7 +723,7 @@ private struct StatusBanner: View {
             Image(systemName: systemImage)
                 .frame(width: 17)
             Text(message)
-                .lineLimit(1)
+                .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .font(.caption2)
@@ -642,6 +757,26 @@ private struct StatusBanner: View {
         case .active: .green
         case .inactive, .conflict: .orange
         }
+    }
+}
+
+private struct TopRowCardModifier: ViewModifier {
+    var cornerRadius: CGFloat = 18
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+            }
+    }
+}
+
+private extension View {
+    func topRowCard(cornerRadius: CGFloat = 18) -> some View {
+        modifier(TopRowCardModifier(cornerRadius: cornerRadius))
     }
 }
 

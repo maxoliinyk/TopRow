@@ -29,10 +29,10 @@ final class MenuBarController: NSObject {
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             item.button?.image = NSImage(
                 systemSymbolName: "keyboard",
-                accessibilityDescription: "TopRow"
+                accessibilityDescription: "Top Row"
             )
             item.button?.image?.isTemplate = true
-            item.button?.toolTip = "TopRow"
+            item.button?.toolTip = "Top Row"
             item.menu = makeMenu()
             statusItem = item
         }
@@ -70,7 +70,7 @@ final class MenuBarController: NSObject {
         menu.autoenablesItems = false
 
         let openItem = NSMenuItem(
-            title: "Open Function Row",
+            title: "Open Top Row",
             action: #selector(openMainWindow),
             keyEquivalent: ""
         )

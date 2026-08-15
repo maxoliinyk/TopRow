@@ -11,6 +11,32 @@ struct SettingsView: View {
     @Environment(ApplicationState.self) private var appState
 
     var body: some View {
+        TabView {
+            GeneralSettingsTab(appState: appState)
+                .tabItem { Label("General", systemImage: "gearshape") }
+
+            AppearanceSettingsTab(appState: appState)
+                .tabItem { Label("Appearance", systemImage: "macwindow") }
+
+            PermissionsSettingsTab(appState: appState)
+                .tabItem { Label("Permissions", systemImage: "lock.shield") }
+
+            AboutSettingsTab()
+                .tabItem { Label("About", systemImage: "info.circle") }
+        }
+        .frame(width: 620, height: 500)
+        .task {
+            await appState.start()
+            appState.refreshPostEventAccess()
+            appState.refreshLaunchAtLogin()
+        }
+    }
+}
+
+private struct GeneralSettingsTab: View {
+    let appState: ApplicationState
+
+    var body: some View {
         Form {
             Section {
                 Toggle(
@@ -21,7 +47,7 @@ struct SettingsView: View {
                 ) {
                     SettingsToggleLabel(
                         title: "Enable Remapping",
-                        detail: "Apply the saved destinations to the built-in function row."
+                        detail: "Apply saved destinations to the built-in top row."
                     )
                 }
                 .toggleStyle(.switch)
@@ -34,7 +60,7 @@ struct SettingsView: View {
                 ) {
                     SettingsToggleLabel(
                         title: "Launch at Login",
-                        detail: "Keep TopRow running so your mappings are restored after you sign in."
+                        detail: "Restore your mappings automatically after you sign in."
                     )
                 }
                 .toggleStyle(.switch)
@@ -48,11 +74,21 @@ struct SettingsView: View {
                     )
                 }
             } header: {
-                Text("General")
+                Text("Behavior")
             } footer: {
-                Text("Changes take effect immediately. Your individual key destinations stay saved when remapping is disabled.")
+                Text("Changes apply immediately. Saved destinations stay intact when remapping is off.")
             }
+        }
+        .formStyle(.grouped)
+        .controlSize(.large)
+    }
+}
 
+private struct AppearanceSettingsTab: View {
+    let appState: ApplicationState
+
+    var body: some View {
+        Form {
             Section {
                 Toggle(
                     isOn: Binding(
@@ -62,7 +98,7 @@ struct SettingsView: View {
                 ) {
                     SettingsToggleLabel(
                         title: "Hide Dock Icon",
-                        detail: "Keep TopRow out of the Dock. It can still be opened from the menu bar unless Silent Mode is enabled."
+                        detail: "Keep Top Row out of the Dock."
                     )
                 }
                 .toggleStyle(.switch)
@@ -75,7 +111,7 @@ struct SettingsView: View {
                 ) {
                     SettingsToggleLabel(
                         title: "Hide Menu Bar Icon",
-                        detail: "Remove the keyboard icon from the menu bar. Use the Dock or Spotlight to open TopRow unless Silent Mode is enabled."
+                        detail: "Remove the keyboard icon from the menu bar."
                     )
                 }
                 .toggleStyle(.switch)
@@ -88,25 +124,35 @@ struct SettingsView: View {
                 ) {
                     SettingsToggleLabel(
                         title: "Silent Mode",
-                        detail: "Hide both icons. Open TopRow from Spotlight or another app launcher."
+                        detail: "Hide both icons; reopen Top Row from Spotlight."
                     )
                 }
                 .toggleStyle(.switch)
 
                 if appState.configuration.isSilentMode {
                     InlineSettingsMessage(
-                        title: "TopRow is running silently",
-                        detail: "Use Spotlight or another app launcher to bring TopRow back when you need it.",
+                        title: "Top Row is running silently",
+                        detail: "Use Spotlight or another app launcher to bring it back.",
                         systemImage: "moon.fill",
                         color: .secondary
                     )
                 }
             } header: {
-                Text("App Visibility")
+                Text("Where Top Row appears")
             } footer: {
-                Text("These settings affect only the app's Dock and menu bar presence. They do not change remapping or Launch at Login.")
+                Text("Visibility only changes where Top Row can be opened. It does not change remapping or Launch at Login.")
             }
+        }
+        .formStyle(.grouped)
+        .controlSize(.large)
+    }
+}
 
+private struct PermissionsSettingsTab: View {
+    let appState: ApplicationState
+
+    var body: some View {
+        Form {
             Section {
                 PermissionStatusRow(appState: appState)
 
@@ -114,14 +160,17 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Enable shortcut output")
                             .font(.callout.weight(.semibold))
-                        Text("Core Graphics calls this Post Event access. macOS lists the switch under Privacy & Security › \(PostEventAccess.settingsCategoryName).")
+                        Text("macOS lists Post Event access under Privacy & Security › \(PostEventAccess.settingsCategoryName).")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
-                        Text("1. Open \(PostEventAccess.settingsCategoryName).  2. Turn on TopRow.  3. Return here and check again.")
-                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 7) {
+                            PermissionStep(number: 1, text: "Open \(PostEventAccess.settingsCategoryName).")
+                            PermissionStep(number: 2, text: "Turn on Top Row.")
+                            PermissionStep(number: 3, text: "Return here and choose Check Again.")
+                        }
 
-                        Text("If TopRow was previously built ad hoc, remove that old TopRow entry once, enable this signed build, and future rebuilds will keep the grant.")
+                        Text("If an older ad-hoc Top Row entry is listed, remove it once before enabling this signed build.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
 
@@ -140,11 +189,11 @@ struct SettingsView: View {
                     .padding(.vertical, 4)
                 }
 
-                Text("Direct Function Key destinations do not need this permission. TopRow only posts the shortcut you configure; it does not monitor keyboard input, install an event tap, or request Input Monitoring.")
+                Text("Direct Function Key destinations do not need this permission. Top Row only posts the shortcut you configure; it does not monitor keyboard input, install an event tap, or request Input Monitoring.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
-                Text("Permissions")
+                Text("Shortcut output")
             }
 
             Section {
@@ -157,28 +206,35 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                 }
             } header: {
-                Text("Keyboard Service")
+                Text("Keyboard service")
             } footer: {
-                Text("TopRow only selects the built-in Apple keyboard. External, Touch Bar, and virtual services are left untouched. Direct HID access is used by this personal-build workflow; no helper, driver, or elevated process is involved.")
+                Text("Only the built-in Apple keyboard is touched. External, Touch Bar, and virtual keyboards are left alone; no helper or elevated process is installed.")
             }
+        }
+        .formStyle(.grouped)
+        .controlSize(.large)
+    }
+}
 
+private struct AboutSettingsTab: View {
+    var body: some View {
+        Form {
             Section {
                 LabeledContent("Version", value: "1.0")
                 LabeledContent("Keyboard scope", value: "Built-in Apple keyboard")
                 LabeledContent("Shortcut output", value: "Post Event access only")
             } header: {
-                Text("About TopRow")
+                Text("About Top Row")
+            }
+
+            Section {
+                Text("Top Row keeps the standard Fn layer available while letting you redirect the special keys you actually use.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .controlSize(.large)
-        .frame(width: 590)
-        .padding(.vertical, 8)
-        .task {
-            await appState.start()
-            appState.refreshPostEventAccess()
-            appState.refreshLaunchAtLogin()
-        }
     }
 }
 
@@ -241,9 +297,9 @@ private struct PermissionStatusRow: View {
             return "Add a Keyboard Shortcut destination to request Post Event access."
         }
         if appState.isPostEventAccessGranted {
-            return "TopRow can emit configured shortcuts through CGEvent."
+            return "Top Row can emit configured shortcuts through CGEvent."
         }
-        return "Turn on TopRow in System Settings › Privacy & Security › \(PostEventAccess.settingsCategoryName)."
+        return "Turn on Top Row in System Settings › Privacy & Security › \(PostEventAccess.settingsCategoryName)."
     }
 
     private var iconName: String {
@@ -283,6 +339,24 @@ private struct HIDStatusRow: View {
         case .checking: .secondary
         case .available: .green
         case .unavailable, .failed: .orange
+        }
+    }
+}
+
+private struct PermissionStep: View {
+    let number: Int
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(number)")
+                .font(.caption.weight(.bold).monospacedDigit())
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 18)
+                .background(Color.accentColor, in: Circle())
+
+            Text(text)
+                .font(.caption)
         }
     }
 }

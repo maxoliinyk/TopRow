@@ -432,6 +432,11 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
     }
 
     mutating func normalize() {
+        mappings = Self.normalizedMappings(mappings)
+        schemaVersion = Self.currentSchemaVersion
+    }
+
+    static func normalizedMappings(_ mappings: [FunctionRowMapping]) -> [FunctionRowMapping] {
         var values: [FunctionRowAction: MappingDestination] = [:]
         for mapping in mappings {
             values[mapping.action] = mapping.destination
@@ -441,7 +446,7 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
         // first valid assignment in the stable action order and clear later or
         // unsupported assignments rather than silently creating duplicates.
         var usedFunctionKeys = Set<FunctionKey>()
-        mappings = FunctionRowAction.allCases.map { action in
+        return FunctionRowAction.allCases.map { action in
             var destination = values[action] ?? .systemDefault
             if case let .functionKey(key) = destination {
                 if !key.isSelectableDestination || !usedFunctionKeys.insert(key).inserted {
@@ -450,7 +455,6 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
             }
             return FunctionRowMapping(action: action, destination: destination)
         }
-        schemaVersion = Self.currentSchemaVersion
     }
 
     static var defaults: Self { Self() }
@@ -510,6 +514,234 @@ nonisolated struct AppConfiguration: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated enum ProfileLayer: String, CaseIterable, Codable, Identifiable, Sendable {
+    case normal
+    case fn
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .normal: "Normal"
+        case .fn: "Fn"
+        }
+    }
+}
+
+/// A profile's mapping payload. This is intentionally separate from
+/// `AppConfiguration`: the existing configuration still owns app-wide
+/// visibility and launch settings, while profiles will eventually own the
+/// normal and Fn destinations that can change with the focused application.
+nonisolated struct LayeredProfile: Codable, Equatable, Sendable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion: Int
+    var normal: [FunctionRowMapping]
+    var fn: [FunctionRowMapping]
+
+    init(
+        schemaVersion: Int = Self.currentSchemaVersion,
+        normal: [FunctionRowMapping] = AppConfiguration.defaults.mappings,
+        fn: [FunctionRowMapping] = AppConfiguration.defaults.mappings
+    ) {
+        self.schemaVersion = schemaVersion
+        self.normal = normal
+        self.fn = fn
+        normalize()
+    }
+
+    init(migrating configuration: AppConfiguration) {
+        self.init(normal: configuration.mappings)
+    }
+
+    static var defaults: Self { Self() }
+
+    func destination(for action: FunctionRowAction, in layer: ProfileLayer) -> MappingDestination {
+        let mappings = layer == .normal ? normal : fn
+        return mappings.first(where: { $0.action == action })?.destination ?? .systemDefault
+    }
+
+    mutating func setDestination(
+        _ destination: MappingDestination,
+        for action: FunctionRowAction,
+        in layer: ProfileLayer
+    ) {
+        switch layer {
+        case .normal:
+            update(&normal, destination: destination, for: action)
+        case .fn:
+            update(&fn, destination: destination, for: action)
+        }
+        normalize()
+    }
+
+    mutating func normalize() {
+        normal = AppConfiguration.normalizedMappings(normal)
+        fn = AppConfiguration.normalizedMappings(fn)
+        schemaVersion = Self.currentSchemaVersion
+    }
+
+    private func update(
+        _ mappings: inout [FunctionRowMapping],
+        destination: MappingDestination,
+        for action: FunctionRowAction
+    ) {
+        if let index = mappings.firstIndex(where: { $0.action == action }) {
+            mappings[index].destination = destination
+        } else {
+            mappings.append(FunctionRowMapping(action: action, destination: destination))
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case normal
+        case fn
+    }
+
+    private struct StoredMapping: Decodable {
+        let action: String?
+        let destination: MappingDestination
+
+        private enum CodingKeys: String, CodingKey {
+            case action
+            case destination
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            action = try? container.decode(String.self, forKey: .action)
+            destination = (try? container.decode(MappingDestination.self, forKey: .destination)) ?? .systemDefault
+        }
+    }
+
+    private static func decodeMappings(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) -> [FunctionRowMapping] {
+        let storedMappings = (try? container.decode([StoredMapping].self, forKey: key)) ?? []
+        return storedMappings.compactMap { mapping in
+            guard let rawAction = mapping.action,
+                  let action = FunctionRowAction(rawValue: rawAction) else { return nil }
+            return FunctionRowMapping(action: action, destination: mapping.destination)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let version = (try? container.decode(Int.self, forKey: .schemaVersion)) ?? -1
+        guard version == Self.currentSchemaVersion else {
+            self = .defaults
+            return
+        }
+
+        self.init(
+            schemaVersion: Self.currentSchemaVersion,
+            normal: Self.decodeMappings(from: container, forKey: .normal),
+            fn: Self.decodeMappings(from: container, forKey: .fn)
+        )
+    }
+}
+
+nonisolated struct AppProfile: Codable, Equatable, Identifiable, Sendable {
+    var bundleIdentifier: String
+    var profile: LayeredProfile
+
+    var id: String { bundleIdentifier }
+
+    init(bundleIdentifier: String, profile: LayeredProfile = .defaults) {
+        self.bundleIdentifier = bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.profile = profile
+    }
+}
+
+/// The persisted profile catalog. App activation is deliberately not part of
+/// this type yet; Phase 0 must prove the hardware behavior before the catalog
+/// is allowed to drive HID writes.
+nonisolated struct ProfileLibrary: Codable, Equatable, Sendable {
+    static let currentSchemaVersion = 1
+
+    var schemaVersion: Int
+    var global: LayeredProfile
+    var appProfiles: [AppProfile]
+
+    init(
+        schemaVersion: Int = Self.currentSchemaVersion,
+        global: LayeredProfile = .defaults,
+        appProfiles: [AppProfile] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.global = global
+        self.appProfiles = appProfiles
+        normalize()
+    }
+
+    static var defaults: Self { Self() }
+
+    func profile(for bundleIdentifier: String) -> LayeredProfile {
+        appProfiles.first(where: { $0.bundleIdentifier == bundleIdentifier })?.profile ?? global
+    }
+
+    func appProfile(for bundleIdentifier: String) -> AppProfile? {
+        appProfiles.first(where: { $0.bundleIdentifier == bundleIdentifier })
+    }
+
+    func copyOfGlobal(for bundleIdentifier: String) -> AppProfile {
+        AppProfile(bundleIdentifier: bundleIdentifier, profile: global)
+    }
+
+    mutating func upsert(_ appProfile: AppProfile) {
+        guard !appProfile.bundleIdentifier.isEmpty else { return }
+
+        if let index = appProfiles.firstIndex(where: { $0.bundleIdentifier == appProfile.bundleIdentifier }) {
+            appProfiles[index] = appProfile
+        } else {
+            appProfiles.append(appProfile)
+        }
+        normalize()
+    }
+
+    mutating func remove(bundleIdentifier: String) {
+        appProfiles.removeAll { $0.bundleIdentifier == bundleIdentifier }
+    }
+
+    mutating func normalize() {
+        global.normalize()
+        schemaVersion = Self.currentSchemaVersion
+
+        var seen = Set<String>()
+        appProfiles = appProfiles.compactMap { appProfile in
+            guard !appProfile.bundleIdentifier.isEmpty,
+                  seen.insert(appProfile.bundleIdentifier).inserted else { return nil }
+
+            var normalized = appProfile
+            normalized.profile.normalize()
+            return normalized
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case global
+        case appProfiles
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let version = (try? container.decode(Int.self, forKey: .schemaVersion)) ?? -1
+        guard version == Self.currentSchemaVersion else {
+            self = .defaults
+            return
+        }
+
+        self.init(
+            schemaVersion: Self.currentSchemaVersion,
+            global: (try? container.decode(LayeredProfile.self, forKey: .global)) ?? .defaults,
+            appProfiles: (try? container.decode([AppProfile].self, forKey: .appProfiles)) ?? []
+        )
+    }
+}
+
 nonisolated struct HIDMappingPair: Codable, Equatable, Hashable, Sendable {
     let source: HIDUsage
     let destination: HIDUsage
@@ -561,7 +793,7 @@ nonisolated enum HIDServiceState: Equatable, Sendable {
     var detail: String {
         switch self {
         case .checking:
-            return "TopRow is looking for the built-in Apple keyboard service."
+            return "Top Row is looking for the built-in Apple keyboard service."
         case .unavailable:
             return "No supported built-in Apple keyboard service was found. External, Touch Bar, and virtual keyboards are intentionally ignored."
         case let .available(services):
@@ -579,11 +811,11 @@ nonisolated enum HIDServiceState: Equatable, Sendable {
 
             switch error {
             case .writeFailed:
-                return serviceText + "macOS rejected the HID mapping write. Direct function-key mappings do not use Post Event permission; TopRow left this key unchanged. Try again after relaunching the app."
+                return serviceText + "macOS rejected the HID mapping write. Direct function-key mappings do not use Post Event permission; Top Row left this key unchanged. Try again after relaunching the app."
             case .verificationFailed:
-                return serviceText + "macOS did not return the requested mapping after the write, so TopRow left this mapping inactive."
+                return serviceText + "macOS did not return the requested mapping after the write, so Top Row left this mapping inactive."
             case .readFailed:
-                return serviceText + "TopRow could not read the keyboard's UserKeyMapping property."
+                return serviceText + "Top Row could not read the keyboard's UserKeyMapping property."
             default:
                 return serviceText + error.localizedDescription
             }
@@ -611,7 +843,7 @@ nonisolated enum RemappingError: LocalizedError, Equatable, Sendable {
         case .unavailableHardware: "No supported built-in Apple keyboard service was found."
         case .permissionRequired: "Shortcut output permission is required."
         case .noProxyAvailable: "No unused proxy function key is available."
-        case .readFailed: "TopRow could not read the keyboard's UserKeyMapping property."
+        case .readFailed: "Top Row could not read the keyboard's UserKeyMapping property."
         case .writeFailed: "macOS rejected the HID mapping write."
         case .verificationFailed: "macOS did not return the requested keyboard mapping after the write."
         }

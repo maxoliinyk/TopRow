@@ -123,6 +123,125 @@ struct TopRowCoreTests {
     }
 
     @Test
+    func layeredProfileKeepsIndependentNormalAndFnDestinations() throws {
+        var profile = LayeredProfile.defaults
+        profile.setDestination(.functionKey(.f13), for: .dictation, in: .normal)
+        profile.setDestination(.shortcut(
+            StoredShortcut(carbonKeyCode: 49, carbonModifiers: Int(cmdKey))
+        ), for: .dictation, in: .fn)
+
+        #expect(profile.destination(for: .dictation, in: .normal) == .functionKey(.f13))
+        #expect(profile.destination(for: .dictation, in: .fn) == .shortcut(
+            StoredShortcut(carbonKeyCode: 49, carbonModifiers: Int(cmdKey))
+        ))
+
+        let encoded = try JSONEncoder().encode(profile)
+        let decoded = try JSONDecoder().decode(LayeredProfile.self, from: encoded)
+        #expect(decoded == profile)
+    }
+
+    @Test
+    func profileLibraryUsesAppOverrideAndGlobalFallback() {
+        var library = ProfileLibrary.defaults
+        var appProfile = library.copyOfGlobal(for: "com.example.Game")
+        appProfile.profile.setDestination(.functionKey(.f13), for: .dictation, in: .normal)
+        library.upsert(appProfile)
+
+        #expect(library.profile(for: "com.example.Game") == appProfile.profile)
+        #expect(library.profile(for: "com.example.Editor") == library.global)
+
+        library.remove(bundleIdentifier: "com.example.Game")
+        #expect(library.appProfile(for: "com.example.Game") == nil)
+        #expect(library.profile(for: "com.example.Game") == library.global)
+    }
+
+    @Test
+    @MainActor
+    func configurationStoreMigratesLegacyConfigurationIntoDefaultsKeys() throws {
+        let suiteName = "TopRowTests.configurationStore.\(UUID().uuidString)"
+        let suite = try #require(UserDefaults(suiteName: suiteName))
+        defer { suite.removePersistentDomain(forName: suiteName) }
+
+        var legacy = AppConfiguration.defaults
+        legacy.isEnabled = false
+        legacy.hideMenuBarIcon = true
+        legacy.setDestination(.functionKey(.f13), for: .dictation)
+        suite.set(try JSONEncoder().encode(legacy), forKey: "TopRow.configuration")
+
+        let store = ConfigurationStore(defaults: suite)
+        let migrated = store.loadConfiguration()
+
+        #expect(migrated == legacy)
+        #expect(suite.object(forKey: "TopRowIsEnabled") as? Bool == false)
+        #expect(suite.data(forKey: "TopRowMappingsData") != nil)
+    }
+
+    @Test
+    @MainActor
+    func configurationStoreMigratesSingleLayerConfigurationIntoGlobalProfile() throws {
+        let suiteName = "TopRowTests.profileStore.\(UUID().uuidString)"
+        let suite = try #require(UserDefaults(suiteName: suiteName))
+        defer { suite.removePersistentDomain(forName: suiteName) }
+
+        var legacy = AppConfiguration.defaults
+        legacy.setDestination(.functionKey(.f13), for: .dictation)
+        suite.set(try JSONEncoder().encode(legacy), forKey: "TopRow.configuration")
+
+        let store = ConfigurationStore(defaults: suite)
+        let profiles = store.loadProfiles()
+
+        #expect(profiles.global.normal == legacy.mappings)
+        #expect(profiles.global.fn == AppConfiguration.defaults.mappings)
+        #expect(profiles.appProfiles.isEmpty)
+        #expect(suite.data(forKey: "TopRowProfilesData") != nil)
+    }
+
+    @Test
+    @MainActor
+    func configurationStorePersistsProfileOverridesAndKeepsGlobalInSync() {
+        let suiteName = "TopRowTests.profileOverrideStore.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        defer { suite.removePersistentDomain(forName: suiteName) }
+
+        let store = ConfigurationStore(defaults: suite)
+        var profiles = store.loadProfiles()
+        var appProfile = profiles.copyOfGlobal(for: "com.example.Game")
+        appProfile.profile.setDestination(.functionKey(.f16), for: .dictation, in: .fn)
+        profiles.upsert(appProfile)
+        store.save(profiles: profiles)
+
+        var configuration = AppConfiguration.defaults
+        configuration.setDestination(.functionKey(.f13), for: .dictation)
+        store.save(configuration: configuration)
+
+        let loaded = store.loadProfiles()
+        #expect(loaded.global.normal == configuration.mappings)
+        #expect(loaded.profile(for: "com.example.Game").destination(for: .dictation, in: .fn) == .functionKey(.f16))
+    }
+
+    @Test
+    @MainActor
+    func configurationStoreMigratesLegacyOwnershipIntoDefaultsKeys() throws {
+        let suiteName = "TopRowTests.ownershipStore.\(UUID().uuidString)"
+        let suite = try #require(UserDefaults(suiteName: suiteName))
+        defer { suite.removePersistentDomain(forName: suiteName) }
+
+        let ownership = OwnershipState(services: [
+            ServiceOwnership(
+                fingerprint: "test-service",
+                baseline: [],
+                applied: []
+            )
+        ])
+        suite.set(try JSONEncoder().encode(ownership), forKey: "TopRow.ownership")
+
+        let store = ConfigurationStore(defaults: suite)
+
+        #expect(store.loadOwnership() == ownership)
+        #expect(suite.data(forKey: "TopRowOwnershipData") != nil)
+    }
+
+    @Test
     func configurationSupportsIndependentVisibilitySettings() {
         var configuration = AppConfiguration.defaults
         configuration.hideDockIcon = true
